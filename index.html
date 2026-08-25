@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#100f18" />
+    <title>晶核猎人 · 像素 Roguelite</title>
+  </head>
+  <body>
+    <main class="game-shell">
+      <header class="titlebar">
+        <div>
+          <p class="eyebrow">CRYSTAL CORE HUNTER</p>
+          <h1>晶核猎人</h1>
+        </div>
+        <p class="stage">第四阶段 · Roguelite 生存构筑</p>
+      </header>
+      <section id="game" aria-label="晶核猎人游戏画面"></section>
+      <output id="telemetry" class="sr-only" aria-live="polite">游戏状态初始化中</output>
+      <footer>
+        <span><kbd>WASD</kbd> 移动</span>
+        <span><kbd>鼠标</kbd> 控制自动挥砍方向</span>
+        <span><kbd>Space</kbd> 翻滚</span>
+        <span><kbd>Q / E</kbd> 主动道具</span>
+        <span><kbd>F</kbd> 开采晶脉</span>
+        <span><kbd>R</kbd> 重新开始</span>
+      </footer>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
