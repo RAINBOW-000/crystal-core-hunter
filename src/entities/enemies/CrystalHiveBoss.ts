@@ -3,12 +3,14 @@ import { BOSS_CONFIG } from "../../config/gameConfig";
 import { getBossPhase, type BossPhase } from "../../domain/combat/BossPhase";
 import { Enemy } from "../Enemy";
 import type { Player } from "../Player";
+import { getEnemyCoreReward } from "../../domain/combat/EnemyCoreReward";
 
 type FireProjectile = (x: number, y: number, velocityX: number, velocityY: number, damage: number, tint?: number) => void;
 
 export class CrystalHiveBoss extends Enemy {
   readonly kind = "boss" as const;
   readonly contactDamage = BOSS_CONFIG.contactDamage;
+  readonly coreReward = getEnemyCoreReward("boss");
   private nextVolleyAt = 0;
   private nextChargeAt = 0;
   private chargeUntil = 0;

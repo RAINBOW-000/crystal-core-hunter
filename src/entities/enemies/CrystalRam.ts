@@ -2,10 +2,12 @@ import Phaser from "phaser";
 import { CRYSTAL_RAM_CONFIG } from "../../config/gameConfig";
 import { Enemy } from "../Enemy";
 import type { Player } from "../Player";
+import { getEnemyCoreReward } from "../../domain/combat/EnemyCoreReward";
 
 export class CrystalRam extends Enemy {
   readonly kind = "normal" as const;
   readonly contactDamage = CRYSTAL_RAM_CONFIG.contactDamage;
+  readonly coreReward = getEnemyCoreReward("crystalRam");
   private nextChargeAt = 1500 + Math.random() * 1200;
   private telegraphUntil = 0;
   private chargeUntil = 0;

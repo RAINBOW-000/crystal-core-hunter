@@ -8,8 +8,8 @@ export class HoldInteraction {
     this.durationMs = durationMs;
   }
 
-  update(deltaMs: number, holding: boolean, stationary: boolean): HoldInteractionState {
-    if (!holding || !stationary) {
+  update(deltaMs: number, holding: boolean): HoldInteractionState {
+    if (!holding) {
       this.reset();
       return "idle";
     }

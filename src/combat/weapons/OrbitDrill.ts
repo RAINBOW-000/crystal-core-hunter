@@ -39,7 +39,7 @@ export class OrbitDrill implements Weapon {
     if (!this.enabled || time - this.lastAttackAt < 170 * this.player.stats.cooldownMultiplier * this.refinementFrequency) return;
     this.lastAttackAt = time;
     this.attackSerial += 1;
-    const hitRadius = this.skills.has("drill-orbit") ? 24 : 17;
+    const hitRadius = this.skills.has("drill-orbit") ? 30 : 17;
     this.drillSprites.forEach((drill) => {
       enemies.getChildren().forEach((child) => {
         const enemy = child as Enemy;

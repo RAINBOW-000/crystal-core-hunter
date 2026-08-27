@@ -7,6 +7,7 @@ import { MINER_UPGRADES } from "../content/upgrades/minerUpgrades";
 import {
   DEFAULT_UNLOCKED_ITEM_IDS,
   EVOLUTION_ITEM_CATALOG,
+  ITEM_CATALOG,
   META_UNLOCKABLE_ITEMS,
 } from "../content/items/itemCatalog";
 import { WEAPON_DEFINITIONS, WEAPON_EVOLUTIONS, WEAPON_IDS, WEAPON_SKILLS } from "../content/weapons/weaponCatalog";
@@ -48,6 +49,7 @@ import { VictoryChestChoices } from "../ui/VictoryChestChoices";
 import { ItemRewardChoices } from "../ui/ItemRewardChoices";
 import { CharacterSelection } from "../ui/CharacterSelection";
 import type { CharacterDefinition } from "../domain/characters/CharacterDefinition";
+import { ItemPickupToast } from "../ui/ItemPickupToast";
 
 /** Application layer for one run. GameScene only creates and ticks this session. */
 export class RunSession {
@@ -77,6 +79,7 @@ export class RunSession {
   private hostileProjectiles!: HostileProjectileSystem;
   private character: CharacterDefinition = MINER_GUARD;
   private talentSystem!: CharacterTalentSystem;
+  private pickupToast!: ItemPickupToast;
 
   constructor(private readonly scene: Phaser.Scene) {}
 
@@ -98,12 +101,17 @@ export class RunSession {
     this.telemetry = new Telemetry();
     this.replacementView = new ActiveItemReplacement(this.scene);
     this.itemRewardView = new ItemRewardChoices(this.scene);
+    this.pickupToast = new ItemPickupToast(this.scene);
     this.experience = new ExperienceModel(EXPERIENCE_CONFIG);
     const qaParameters = new URLSearchParams(window.location.search);
     const qaVictory = import.meta.env.DEV && qaParameters.has("qaVictory");
     const qaVeinReward = import.meta.env.DEV && qaParameters.has("qaVeinReward");
     const qaBoss = import.meta.env.DEV && qaParameters.has("qaBoss");
     const qaEnemies = import.meta.env.DEV && qaParameters.has("qaEnemies");
+    const qaItems = import.meta.env.DEV && qaParameters.has("qaItems");
+    const qaItemReplacement = import.meta.env.DEV && qaParameters.has("qaItemReplacement");
+    const qaMining = import.meta.env.DEV && qaParameters.has("qaMining");
+    const qaCoreTiers = import.meta.env.DEV && qaParameters.has("qaCoreTiers");
     this.metaStorage = new MetaUnlockStorage(qaVictory
       ? "crystal-core-hunter.meta-unlocks.qa"
       : undefined);
@@ -117,7 +125,7 @@ export class RunSession {
     this.drops = new DropSystem(
       this.scene,
       this.player,
-      (amount) => this.events.emit("experienceCollected", { amount }),
+      (amount) => this.events.emit("experienceCollected", { amount, coreCount: 1 }),
     );
     this.itemDrops = new ItemDropSystem(this.scene, this.player, this.inventory, {
       onAcquired: (stack, upgraded) => this.onItemAcquired(stack, upgraded),
@@ -177,6 +185,40 @@ export class RunSession {
         this.phase = "playing";
         this.scene.physics.resume();
         this.hud.setHint(`${character.name} · ${character.talentName} · 收集晶核升级`);
+        if (qaItems) {
+          ["crystal-bomb", "rough-armor"].forEach((itemId) => {
+            const item = ITEM_CATALOG.find((candidate) => candidate.id === itemId)!;
+            const result = this.inventory.acquire(item);
+            if (result.type === "acquired" || result.type === "upgraded") {
+              this.onItemAcquired(result.stack, result.type === "upgraded");
+            }
+          });
+          this.scene.time.delayedCall(250, () => {
+            this.activeItems.useSlot(0, this.scene.time.now, this.scene.input.activePointer);
+          });
+        }
+        if (qaItemReplacement) {
+          ["crystal-bomb", "magnetic-pulse"].forEach((itemId) => {
+            const item = ITEM_CATALOG.find((candidate) => candidate.id === itemId)!;
+            const result = this.inventory.acquire(item);
+            if (result.type === "acquired" || result.type === "upgraded") {
+              this.onItemAcquired(result.stack, result.type === "upgraded");
+            }
+          });
+          this.scene.time.delayedCall(350, () => {
+            const incoming = ITEM_CATALOG.find((candidate) => candidate.id === "time-anchor")!;
+            this.openItemReplacement(incoming);
+          });
+        }
+        if (qaMining) this.scene.time.delayedCall(250, () => this.rareVeins.spawnForQa());
+        if (qaCoreTiers) {
+          ([1, 2, 3, 4] as const).forEach((coreTier, index) => {
+            this.drops.drop(300 + index * 120, 390, {
+              coreTier,
+              experience: [1, 3, 6, 10][index],
+            });
+          });
+        }
         this.renderSnapshot(this.scene.time.now);
         if (qaVictory) this.scene.time.delayedCall(350, () => this.finishRun(true));
         if (qaVeinReward) this.scene.time.delayedCall(350, () => this.openRareVeinReward());
@@ -230,9 +272,11 @@ export class RunSession {
       dodgeCooldownMs: this.player.getDodgeCooldown(time),
       playerPosition: { x: Math.round(this.player.x), y: Math.round(this.player.y) },
       dodging: this.player.isDodging(time),
-      activeItems: this.inventory.activeSlots.map((stack) => stack
-        ? { name: stack.definition.name, level: stack.level }
-        : undefined),
+      activeItems: this.activeItems.getSlotStates(time),
+      passiveItems: this.inventory.passiveStacks.map((stack) => ({
+        name: stack.definition.name,
+        level: stack.level,
+      })),
       bossActive: this.bossActive,
       bossHp: this.director.bossHp,
       bossMaxHp: this.director.bossMaxHp,
@@ -245,20 +289,20 @@ export class RunSession {
   }
 
   private bindRunEvents(): void {
-    this.events.on("enemyDefeated", ({ x, y, experience, kind }) => {
+    this.events.on("enemyDefeated", ({ x, y, experience, coreTier, kind }) => {
       if (kind === "boss") {
         this.events.emit("runEnded", { survived: true });
         return;
       }
-      this.drops.drop(x, y, experience);
+      this.drops.drop(x, y, { experience, coreTier });
       if (kind === "elite" && Math.random() < ELITE_BUG_CONFIG.itemDropChance + this.player.stats.luck) {
         const evolutionIds = new Set(this.weaponProgression.getEligibleEvolutionItemIds());
         const evolutionPool = EVOLUTION_ITEM_CATALOG.filter((item) => evolutionIds.has(item.id));
         this.itemDrops.dropRandom(x + 12, y, [...this.runItemPool, ...evolutionPool]);
       }
     });
-    this.events.on("experienceCollected", ({ amount }) => {
-      if (this.talentSystem.onCoresCollected(amount)) {
+    this.events.on("experienceCollected", ({ amount, coreCount }) => {
+      if (this.talentSystem.onCoresCollected(coreCount)) {
         this.hud.setHint(`${this.character.talentName}：晶核能量恢复生命`, "#78f3da");
       }
       this.experience.add(amount).forEach((level) => {
@@ -300,10 +344,12 @@ export class RunSession {
   }
 
   private emitEnemyDefeated(enemy: Enemy): void {
+    const reward = enemy.coreReward;
     this.events.emit("enemyDefeated", {
       x: enemy.x,
       y: enemy.y,
-      experience: enemy.kind === "elite" ? 5 : 1,
+      experience: reward.experience,
+      coreTier: reward.coreTier,
       kind: enemy.kind,
     });
   }
@@ -322,7 +368,6 @@ export class RunSession {
       sourceY,
       this.scene.time.now,
     );
-    if (outcome === "damaged" || outcome === "dead") this.rareVeins.interrupt();
     if (outcome === "dead") this.events.emit("runEnded", { survived: false });
   }
 
@@ -366,6 +411,7 @@ export class RunSession {
 
   private onItemAcquired(stack: ItemStack, upgraded: boolean): void {
     if (stack.definition.kind === "passive") this.applyPassiveItem(stack.definition);
+    this.pickupToast.show(stack, upgraded);
     const action = upgraded ? "升级" : "获得";
     this.hud.setHint(`${action}道具：${stack.definition.name} · LV${stack.level}`, "#ffcf70");
     if (stack.definition.kind === "evolution") this.upgrades.receiveEvolutionItem(stack.definition.id);
@@ -391,6 +437,7 @@ export class RunSession {
       this.inventory.activeSlots,
       (slotIndex) => {
         const stack = this.inventory.replaceActive(slotIndex, item);
+        this.pickupToast.show(stack, false);
         this.closeItemReplacement(`已装备：${stack.definition.name} · LV1`);
       },
       () => this.closeItemReplacement(`已放弃：${item.name}`),
@@ -432,7 +479,7 @@ export class RunSession {
       }
       this.onItemAcquired(result.stack, result.type === "upgraded");
       this.closeItemReward(`晶脉奖励：${result.stack.definition.name} · LV${result.stack.level}`);
-    });
+    }, (item) => this.inventory.find(item.id)?.level ?? 0);
     this.hud.setHint("战斗已暂停：选择一件晶脉道具", "#9d7cff");
     this.renderSnapshot(this.scene.time.now);
   }
@@ -454,6 +501,7 @@ export class RunSession {
       remainingMs: state.remainingMs,
       enemyCount: state.enemyCount,
       activeItems: state.activeItems,
+      passiveItems: state.passiveItems,
       bossActive: state.bossActive,
       bossHp: state.bossHp,
       bossMaxHp: state.bossMaxHp,

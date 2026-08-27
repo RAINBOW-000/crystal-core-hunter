@@ -2,10 +2,12 @@ import Phaser from "phaser";
 import { ELITE_BUG_CONFIG } from "../../config/gameConfig";
 import { Enemy } from "../Enemy";
 import type { Player } from "../Player";
+import { getEnemyCoreReward } from "../../domain/combat/EnemyCoreReward";
 
 export class EliteCrystalBug extends Enemy {
   readonly kind = "elite" as const;
   readonly contactDamage = ELITE_BUG_CONFIG.contactDamage;
+  readonly coreReward = getEnemyCoreReward("elite");
 
   constructor(scene: Phaser.Scene, x: number, y: number, reinforced = false) {
     super(scene, x, y, "elite-crystal-bug", reinforced ? ELITE_BUG_CONFIG.hp * 1.8 : ELITE_BUG_CONFIG.hp);

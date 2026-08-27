@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import type { DamageSpec } from "../combat/Damage";
+import type { EnemyCoreReward } from "../domain/combat/EnemyCoreReward";
 import type { Player } from "./Player";
 
 export type EnemyKind = "normal" | "elite" | "boss";
@@ -21,6 +22,7 @@ export abstract class Enemy extends Phaser.Physics.Arcade.Sprite {
 
   abstract readonly kind: EnemyKind;
   abstract readonly contactDamage: number;
+  abstract readonly coreReward: EnemyCoreReward;
 
   abstract updateBehavior(time: number, player: Player): void;
 

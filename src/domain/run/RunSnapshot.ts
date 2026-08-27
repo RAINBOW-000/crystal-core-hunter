@@ -18,7 +18,8 @@ export interface RunSnapshot {
   dodgeCooldownMs: number;
   playerPosition: { x: number; y: number };
   dodging: boolean;
-  activeItems: readonly ({ name: string; level: number } | undefined)[];
+  activeItems: readonly ({ name: string; level: number; cooldownMs: number; remainingMs: number; ready: boolean } | undefined)[];
+  passiveItems: readonly { name: string; level: number }[];
   bossActive: boolean;
   bossHp: number;
   bossMaxHp: number;

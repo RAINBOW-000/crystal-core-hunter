@@ -2,10 +2,12 @@ import Phaser from "phaser";
 import { CRYSTAL_BUG_CONFIG } from "../../config/gameConfig";
 import { Enemy } from "../Enemy";
 import type { Player } from "../Player";
+import { getEnemyCoreReward } from "../../domain/combat/EnemyCoreReward";
 
 export class CrystalBug extends Enemy {
   readonly kind = "normal" as const;
   readonly contactDamage = CRYSTAL_BUG_CONFIG.contactDamage;
+  readonly coreReward = getEnemyCoreReward("crystalBug");
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, "crystal-bug", CRYSTAL_BUG_CONFIG.hp);

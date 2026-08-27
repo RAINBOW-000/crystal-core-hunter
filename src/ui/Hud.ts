@@ -8,7 +8,8 @@ export interface HudState {
   dodgeCooldown: number;
   remainingMs: number;
   enemyCount: number;
-  activeItems: readonly ({ name: string; level: number } | undefined)[];
+  activeItems: readonly ({ name: string; level: number; cooldownMs: number; remainingMs: number; ready: boolean } | undefined)[];
+  passiveItems: readonly { name: string; level: number }[];
   bossActive: boolean;
   bossHp: number;
   bossMaxHp: number;
@@ -22,6 +23,7 @@ export class Hud {
   private readonly runText: Phaser.GameObjects.Text;
   private readonly hintText: Phaser.GameObjects.Text;
   private readonly itemText: Phaser.GameObjects.Text;
+  private readonly passiveText: Phaser.GameObjects.Text;
   private readonly bossBarBack: Phaser.GameObjects.Rectangle;
   private readonly bossBarFill: Phaser.GameObjects.Rectangle;
   private readonly bossBarText: Phaser.GameObjects.Text;
@@ -39,8 +41,11 @@ export class Hud {
     this.hintText = scene.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 28, "靠近晶壳虫，试试大剑的击退与三段连击", {
       fontFamily: "Microsoft YaHei", fontSize: "13px", color: "#a99cb4",
     }).setOrigin(0.5).setDepth(50);
-    this.itemText = scene.add.text(76, GAME_HEIGHT - 50, "", {
+    this.itemText = scene.add.text(76, GAME_HEIGHT - 68, "", {
       fontFamily: "Microsoft YaHei", fontSize: "12px", color: "#d9cce4",
+    }).setDepth(50);
+    this.passiveText = scene.add.text(76, GAME_HEIGHT - 48, "", {
+      fontFamily: "Microsoft YaHei", fontSize: "11px", color: "#a99cb4",
     }).setDepth(50);
     this.bossBarBack = scene.add.rectangle(GAME_WIDTH / 2, 82, 326, 15, 0x17131f, 0.95)
       .setStrokeStyle(1, 0xff8a8a).setDepth(52).setVisible(false);
@@ -65,10 +70,14 @@ export class Hud {
     this.runText.setText(`${state.bossActive ? "晶巢领主现身  ·  " : `${state.characterName}  ·  `}敌群 ${state.enemyCount}  ·  ${minutesLabel}:${secondsLabel}`);
     const slotLabel = state.activeItems.map((item, index) => {
       const key = index === 0 ? "Q" : "E";
-      return `[${key}] ${item ? `${item.name} LV${item.level}` : "空槽"}`;
+      if (!item) return `[${key}] 空槽`;
+      const cooldown = item.ready ? "就绪" : `${(item.remainingMs / 1000).toFixed(1)}s`;
+      return `[${key}] ${item.name} LV${item.level} · ${cooldown}`;
     }).join("    ");
     const weapons = state.equippedWeapons.map((weapon) => `${weapon.name} LV${weapon.level}`).join(" + ");
     this.itemText.setText(`${weapons || "选择初始武器"}    ·    ${slotLabel}`);
+    const passives = state.passiveItems.map((item) => `${item.name} LV${item.level}`).join(" · ");
+    this.passiveText.setText(passives ? `被动 · ${passives}` : "被动 · 暂无");
     const bossVisible = state.bossActive && state.bossMaxHp > 0 && state.bossHp > 0;
     this.bossBarBack.setVisible(bossVisible);
     this.bossBarFill.setVisible(bossVisible);

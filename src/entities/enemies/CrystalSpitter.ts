@@ -2,12 +2,14 @@ import Phaser from "phaser";
 import { CRYSTAL_SPITTER_CONFIG } from "../../config/gameConfig";
 import { Enemy } from "../Enemy";
 import type { Player } from "../Player";
+import { getEnemyCoreReward } from "../../domain/combat/EnemyCoreReward";
 
 type FireProjectile = (x: number, y: number, velocityX: number, velocityY: number, damage: number, tint?: number) => void;
 
 export class CrystalSpitter extends Enemy {
   readonly kind = "normal" as const;
   readonly contactDamage = CRYSTAL_SPITTER_CONFIG.contactDamage;
+  readonly coreReward = getEnemyCoreReward("crystalSpitter");
   private nextShotAt = 900 + Math.random() * 700;
   private strafeSign = Math.random() < 0.5 ? -1 : 1;
 

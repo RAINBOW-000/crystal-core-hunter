@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { GAME_HEIGHT, GAME_WIDTH } from "../config/gameConfig";
 import type { ItemDefinition, ItemStack } from "../domain/items/ItemDefinition";
+import { describeItemLevelEffect } from "../domain/items/ItemEffectScaling";
 
 export class ActiveItemReplacement {
   private objects: Phaser.GameObjects.GameObject[] = [];
@@ -30,14 +31,30 @@ export class ActiveItemReplacement {
       this.scene.add.text(GAME_WIDTH / 2, 82, "主动道具槽已满", {
         fontFamily: "Microsoft YaHei", fontSize: "30px", color: "#78f3da", fontStyle: "bold",
       }).setOrigin(0.5).setDepth(301),
-      this.scene.add.text(GAME_WIDTH / 2, 124, `拾取：${incoming.name} · 选择要替换的道具，或放弃`, {
-        fontFamily: "Microsoft YaHei", fontSize: "15px", color: "#d5cadd",
-      }).setOrigin(0.5).setDepth(301),
+      this.scene.add.text(
+        GAME_WIDTH / 2,
+        124,
+        `拾取：${incoming.name} · LV1 · ${describeItemLevelEffect(incoming, 1)}`,
+        { fontFamily: "Microsoft YaHei", fontSize: "15px", color: "#d5cadd" },
+      ).setOrigin(0.5).setDepth(301),
     );
 
+    const describeSlot = (slot: ItemStack | undefined, key: string): string => slot
+      ? `当前 LV${slot.level} · ${describeItemLevelEffect(slot.definition, slot.level)}`
+      : `${key} 槽为空`;
     const actions = [
-      { title: `替换 ${slots[0]?.definition.name ?? "槽位 Q"}`, detail: "放入 Q 槽", color: 0x2b2637, run: () => onReplace(0) },
-      { title: `替换 ${slots[1]?.definition.name ?? "槽位 E"}`, detail: "放入 E 槽", color: 0x2b2637, run: () => onReplace(1) },
+      {
+        title: `替换 ${slots[0]?.definition.name ?? "槽位 Q"}`,
+        detail: describeSlot(slots[0], "Q"),
+        color: 0x2b2637,
+        run: () => onReplace(0),
+      },
+      {
+        title: `替换 ${slots[1]?.definition.name ?? "槽位 E"}`,
+        detail: describeSlot(slots[1], "E"),
+        color: 0x2b2637,
+        run: () => onReplace(1),
+      },
       { title: "放弃新道具", detail: "保留当前搭配", color: 0x352329, run: onDiscard },
     ];
     this.handlers = actions.map((action) => action.run);
@@ -55,7 +72,8 @@ export class ActiveItemReplacement {
         align: "center", wordWrap: { width: 170 },
       }).setOrigin(0.5).setDepth(302);
       const detail = this.scene.add.text(x, 340, action.detail, {
-        fontFamily: "Microsoft YaHei", fontSize: "13px", color: "#b7aabe",
+        fontFamily: "Microsoft YaHei", fontSize: "12px", color: "#b7aabe",
+        align: "center", wordWrap: { width: 168 },
       }).setOrigin(0.5).setDepth(302);
       card.on("pointerover", () => card.setFillStyle(index === 2 ? 0x4b2c34 : 0x3a3049));
       card.on("pointerout", () => card.setFillStyle(action.color));

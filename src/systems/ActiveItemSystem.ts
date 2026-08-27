@@ -2,6 +2,17 @@ import Phaser from "phaser";
 import type { ItemInventory } from "../domain/items/ItemInventory";
 import type { Enemy } from "../entities/Enemy";
 import type { Player } from "../entities/Player";
+import { ActiveItemCooldowns } from "../domain/items/ActiveItemCooldown";
+import { getActiveItemEffectStats } from "../domain/items/ItemEffectScaling";
+import type { ActiveEffect } from "../domain/items/ItemDefinition";
+
+export interface ActiveItemSlotState {
+  name: string;
+  level: number;
+  cooldownMs: number;
+  remainingMs: number;
+  ready: boolean;
+}
 
 interface ActiveItemCallbacks {
   onEnemyKilled: (enemy: Enemy) => void;
@@ -10,7 +21,7 @@ interface ActiveItemCallbacks {
 
 export class ActiveItemSystem {
   private readonly keys: readonly Phaser.Input.Keyboard.Key[];
-  private readonly readyAtByItem = new Map<string, number>();
+  private readonly cooldowns = new ActiveItemCooldowns();
   private attackSerial = 100000;
 
   constructor(
@@ -29,42 +40,61 @@ export class ActiveItemSystem {
   update(time: number, pointer: Phaser.Input.Pointer): void {
     this.keys.forEach((key, slotIndex) => {
       if (!Phaser.Input.Keyboard.JustDown(key)) return;
-      const stack = this.inventory.activeSlots[slotIndex];
-      if (!stack) {
-        this.callbacks.onUsed(`${slotIndex === 0 ? "Q" : "E"} 槽尚未装备主动道具`);
-        return;
-      }
-      const readyAt = this.readyAtByItem.get(stack.definition.id) ?? 0;
-      if (time < readyAt) {
-        this.callbacks.onUsed(`${stack.definition.name} 冷却中 · ${Math.ceil((readyAt - time) / 1000)}s`);
-        return;
-      }
-      this.readyAtByItem.set(stack.definition.id, time + (stack.definition.cooldownMs ?? 10000));
-      this.activate(stack.definition.activeEffect, stack.level, time, pointer);
-      this.callbacks.onUsed(`释放：${stack.definition.name}`);
+      this.useSlot(slotIndex, time, pointer);
+    });
+  }
+
+  useSlot(slotIndex: number, time: number, pointer: Phaser.Input.Pointer): boolean {
+    const stack = this.inventory.activeSlots[slotIndex];
+    if (!stack) {
+      this.callbacks.onUsed(`${slotIndex === 0 ? "Q" : "E"} 槽尚未装备主动道具`);
+      return false;
+    }
+    const cooldownState = this.cooldowns.getState(stack.definition.id, time);
+    if (!cooldownState.ready) {
+      this.callbacks.onUsed(`${stack.definition.name} 冷却中 · ${Math.ceil(cooldownState.remainingMs / 1000)}s`);
+      return false;
+    }
+    this.cooldowns.trigger(stack.definition.id, time, stack.definition.cooldownMs ?? 10000);
+    this.activate(stack.definition.activeEffect, stack.level, time, pointer);
+    this.callbacks.onUsed(`释放：${stack.definition.name}`);
+    return true;
+  }
+
+  getSlotStates(time: number): readonly (ActiveItemSlotState | undefined)[] {
+    return this.inventory.activeSlots.map((stack) => {
+      if (!stack) return undefined;
+      const cooldownMs = stack.definition.cooldownMs ?? 10000;
+      return {
+        name: stack.definition.name,
+        level: stack.level,
+        cooldownMs,
+        ...this.cooldowns.getState(stack.definition.id, time),
+      };
     });
   }
 
   private activate(
-    effect: string | undefined,
+    effect: ActiveEffect | undefined,
     level: number,
     time: number,
     pointer: Phaser.Input.Pointer,
   ): void {
+    const stats = effect ? getActiveItemEffectStats(effect, level) : {};
     if (effect === "regeneration") {
-      this.player.heal(22 + level * 13);
+      this.player.heal(stats.healing!);
       this.showRing(this.player.x, this.player.y, 55, 0x83e06f);
       return;
     }
     if (effect === "prismShield") {
-      this.player.grantInvulnerability(time + 900 + level * 500);
+      this.player.grantInvulnerability(time + stats.durationMs!);
       this.showRing(this.player.x, this.player.y, 70, 0x91b9ff);
       return;
     }
     if (effect === "timeAnchor") {
       this.enemies.getChildren().forEach((child) => {
         const enemy = child as Enemy;
-        enemy.hurtUntil = Math.max(enemy.hurtUntil, time + 800 + level * 350);
+        enemy.hurtUntil = Math.max(enemy.hurtUntil, time + stats.durationMs!);
         enemy.setVelocity(0, 0);
       });
       this.showRing(this.player.x, this.player.y, 260, 0xc69cff);
@@ -72,17 +102,15 @@ export class ActiveItemSystem {
     }
 
     if (effect === "magneticPulse") {
-      this.damageArea(this.player.x, this.player.y, 135 + level * 20, 1 + level, 520, time);
-      this.showRing(this.player.x, this.player.y, 135 + level * 20, 0x62ead4);
+      this.damageArea(this.player.x, this.player.y, stats.radius!, stats.damage!, stats.knockback!, time);
+      this.showRing(this.player.x, this.player.y, stats.radius!, 0x62ead4);
       return;
     }
 
     const targetX = Phaser.Math.Clamp(pointer.worldX, 60, 900);
     const targetY = Phaser.Math.Clamp(pointer.worldY, 72, 484);
-    const radius = effect === "drillSwarm" ? 105 + level * 12 : 78 + level * 14;
-    const damage = effect === "drillSwarm" ? 3 + level * 2 : 4 + level * 3;
-    this.damageArea(targetX, targetY, radius, damage, 330, time);
-    this.showRing(targetX, targetY, radius, effect === "drillSwarm" ? 0xe5d26c : 0xffb45e);
+    this.damageArea(targetX, targetY, stats.radius!, stats.damage!, stats.knockback!, time);
+    this.showRing(targetX, targetY, stats.radius!, effect === "drillSwarm" ? 0xe5d26c : 0xffb45e);
   }
 
   private damageArea(

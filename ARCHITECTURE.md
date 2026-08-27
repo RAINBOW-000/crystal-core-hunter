@@ -58,6 +58,7 @@ UI 只读取 `RunSnapshot`。以后增加结算、暂停、调试面板或录像
 ## 本轮新增的规则边界
 
 - `domain/items/ItemInventory` 负责主动槽、无限被动栏、道具等级和替换判定；拾取系统与 UI 不复制这些规则。
+- `domain/items/ActiveItemCooldown` 负责主动道具的纯时间状态；`ItemEffectScaling` 统一战斗数值与奖励卡预览，避免两处公式漂移。
 - `domain/weapons/WeaponProgression` 负责第二武器、路线锁定、保护随机、两段顺序进化和高级升级补发，不依赖 Phaser。
 - 该领域模型直接生成严格三项的高级候选；路线技能不足时才加入可重复精炼，等待进化材料时返回阻塞状态。
 - `combat/WeaponRack` 同时驱动最多两把武器；四种武器通过统一接口接收技能 ID 和路线进化，不依赖升级 UI 的具体实现。

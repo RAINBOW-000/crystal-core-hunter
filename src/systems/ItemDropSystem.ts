@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import type { ItemDefinition, ItemStack } from "../domain/items/ItemDefinition";
 import type { ItemInventory } from "../domain/items/ItemInventory";
 import type { Player } from "../entities/Player";
+import { pickEligibleItem } from "../domain/items/ItemDropPool";
 
 type WorldItem = Phaser.Physics.Arcade.Sprite & { definition: ItemDefinition };
 
@@ -24,9 +25,8 @@ export class ItemDropSystem {
   }
 
   dropRandom(x: number, y: number, pool: readonly ItemDefinition[]): boolean {
-    const eligible = pool.filter((item) => this.inventory.canDrop(item));
-    if (eligible.length === 0) return false;
-    const definition = Phaser.Utils.Array.GetRandom(eligible);
+    const definition = pickEligibleItem(pool, (item) => this.inventory.canDrop(item));
+    if (!definition) return false;
     const drop = this.group.create(x, y, "item-drop") as WorldItem;
     drop.definition = definition;
     drop.setTint(definition.color).setDepth(19).setBounce(0.5).setCollideWorldBounds(true);

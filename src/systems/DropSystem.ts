@@ -1,7 +1,15 @@
 import Phaser from "phaser";
+import type { EnemyCoreReward } from "../domain/combat/EnemyCoreReward";
 import type { Player } from "../entities/Player";
 
-type ExperienceCore = Phaser.Physics.Arcade.Sprite & { xpValue: number };
+type ExperienceCore = Phaser.Physics.Arcade.Sprite & EnemyCoreReward;
+
+const CORE_STYLES = {
+  1: { tint: 0x78f3da, scale: 1, name: "碎晶核 I" },
+  2: { tint: 0x78b8ff, scale: 1.14, name: "凝晶核 II" },
+  3: { tint: 0xc58aff, scale: 1.28, name: "辉晶核 III" },
+  4: { tint: 0xffcf70, scale: 1.45, name: "耀晶核 IV" },
+} as const;
 
 export class DropSystem {
   readonly group: Phaser.Physics.Arcade.Group;
@@ -26,9 +34,12 @@ export class DropSystem {
     });
   }
 
-  drop(x: number, y: number, xpValue = 1): void {
+  drop(x: number, y: number, reward: EnemyCoreReward): void {
     const core = this.group.create(x, y, "crystal-core") as ExperienceCore;
-    core.xpValue = xpValue;
+    core.experience = reward.experience;
+    core.coreTier = reward.coreTier;
+    const style = CORE_STYLES[reward.coreTier];
+    core.setTint(style.tint).setScale(style.scale);
     core.setDepth(17).setBounce(0.72).setCollideWorldBounds(true).setDrag(190, 190);
     core.setVelocity(Phaser.Math.Between(-90, 90), Phaser.Math.Between(-90, 90));
     this.scene.tweens.add({ targets: core, angle: 360, duration: 900, repeat: -1 });
@@ -44,9 +55,17 @@ export class DropSystem {
     core.disableBody(true, true);
     this.scene.cameras.main.flash(80, 90, 240, 215, false);
 
-    const pickupText = this.scene.add.text(this.player.x, this.player.y - 28, "+1 晶核", {
-      fontFamily: "monospace", fontSize: "13px", color: "#78f3da",
-    }).setOrigin(0.5).setDepth(45);
+    const style = CORE_STYLES[core.coreTier];
+    const pickupText = this.scene.add.text(
+      this.player.x,
+      this.player.y - 28,
+      `${style.name} · +${core.experience} 经验`,
+      {
+        fontFamily: "Microsoft YaHei",
+        fontSize: "13px",
+        color: `#${style.tint.toString(16).padStart(6, "0")}`,
+      },
+    ).setOrigin(0.5).setDepth(45);
     this.scene.tweens.add({
       targets: pickupText,
       y: pickupText.y - 24,
@@ -54,6 +73,6 @@ export class DropSystem {
       duration: 560,
       onComplete: () => pickupText.destroy(),
     });
-    this.onCollected(core.xpValue);
+    this.onCollected(core.experience);
   }
 }

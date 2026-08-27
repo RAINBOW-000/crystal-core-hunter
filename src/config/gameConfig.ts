@@ -87,7 +87,7 @@ export const RUN_CONFIG = {
 } as const;
 
 export const RARE_VEIN_CONFIG = {
-  interactionRadius: 62,
+  interactionRadius: 82,
   miningDurationMs: 2500,
   spawnPlayerClearance: 220,
 } as const;

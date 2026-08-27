@@ -56,16 +56,14 @@ export class RareVeinSystem {
       return;
     }
 
-    const body = this.player.body as Phaser.Physics.Arcade.Body;
-    const stationary = body.velocity.lengthSq() < 36;
-    const state = this.mining.update(deltaMs, this.interactKey.isDown, stationary);
+    const state = this.mining.update(deltaMs, this.interactKey.isDown);
     if (state === "idle") {
       this.hideProgress();
-      this.setHint(stationary ? "靠近稀有晶脉，按住 F 开采" : "停止移动后按住 F 开采");
+      this.setHint("进入范围后按住 F 开采，可在范围内移动");
       return;
     }
     this.showProgress(nearby);
-    this.setHint(`正在开采稀有晶脉 · ${Math.floor(this.mining.ratio * 100)}%`, "#78f3da");
+    this.setHint(`正在开采稀有晶脉 · ${Math.floor(this.mining.ratio * 100)}% · 移动与受伤不会中断`, "#78f3da");
     if (state !== "completed") return;
 
     nearby.destroy();
@@ -77,26 +75,27 @@ export class RareVeinSystem {
     this.callbacks.onMined();
   }
 
-  interrupt(): void {
-    if (this.mining.progressMs <= 0) return;
-    this.mining.reset();
-    this.hideProgress();
-    this.setHint("受到攻击，开采已中断", "#ff8c86");
+  spawnForQa(): void {
+    this.spawnVein(true);
   }
 
-  private spawnVein(): void {
-    let x = ROOM_BOUNDS.x + ROOM_BOUNDS.width / 2;
-    let y = ROOM_BOUNDS.y + ROOM_BOUNDS.height / 2;
-    for (let attempt = 0; attempt < 12; attempt += 1) {
-      x = Phaser.Math.Between(ROOM_BOUNDS.x + 48, ROOM_BOUNDS.x + ROOM_BOUNDS.width - 48);
-      y = Phaser.Math.Between(ROOM_BOUNDS.y + 48, ROOM_BOUNDS.y + ROOM_BOUNDS.height - 48);
-      if (Phaser.Math.Distance.Between(x, y, this.player.x, this.player.y) >= RARE_VEIN_CONFIG.spawnPlayerClearance) break;
+  private spawnVein(nearPlayer = false): void {
+    let x = nearPlayer
+      ? Phaser.Math.Clamp(this.player.x + RARE_VEIN_CONFIG.interactionRadius - 12, ROOM_BOUNDS.x + 48, ROOM_BOUNDS.x + ROOM_BOUNDS.width - 48)
+      : ROOM_BOUNDS.x + ROOM_BOUNDS.width / 2;
+    let y = nearPlayer ? this.player.y : ROOM_BOUNDS.y + ROOM_BOUNDS.height / 2;
+    if (!nearPlayer) {
+      for (let attempt = 0; attempt < 12; attempt += 1) {
+        x = Phaser.Math.Between(ROOM_BOUNDS.x + 48, ROOM_BOUNDS.x + ROOM_BOUNDS.width - 48);
+        y = Phaser.Math.Between(ROOM_BOUNDS.y + 48, ROOM_BOUNDS.y + ROOM_BOUNDS.height - 48);
+        if (Phaser.Math.Distance.Between(x, y, this.player.x, this.player.y) >= RARE_VEIN_CONFIG.spawnPlayerClearance) break;
+      }
     }
     const vein = this.scene.physics.add.staticSprite(x, y, "rare-vein").setDepth(14);
     this.veins.push(vein);
     const pulse = this.scene.add.circle(x, y, 28, 0x78f3da, 0.08).setDepth(13);
     this.scene.tweens.add({ targets: pulse, scale: 1.45, alpha: 0, duration: 1000, repeat: 2, onComplete: () => pulse.destroy() });
-    this.callbacks.onHint("稀有晶脉已出现 · 靠近后按住 F 开采", "#9d7cff");
+    this.callbacks.onHint("稀有晶脉已出现 · 进入范围后按住 F 开采", "#9d7cff");
   }
 
   private findNearestVein(): Phaser.Physics.Arcade.Sprite | undefined {

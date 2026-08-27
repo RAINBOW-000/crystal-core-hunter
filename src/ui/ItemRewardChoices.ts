@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { GAME_HEIGHT, GAME_WIDTH } from "../config/gameConfig";
 import type { ItemDefinition } from "../domain/items/ItemDefinition";
+import { describeItemLevelEffect } from "../domain/items/ItemEffectScaling";
 
 export class ItemRewardChoices {
   private objects: Phaser.GameObjects.GameObject[] = [];
@@ -17,7 +18,11 @@ export class ItemRewardChoices {
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => scene.input.keyboard!.off("keydown", this.keyboardHandler));
   }
 
-  open(options: readonly ItemDefinition[], onSelect: (item: ItemDefinition) => void): void {
+  open(
+    options: readonly ItemDefinition[],
+    onSelect: (item: ItemDefinition) => void,
+    getOwnedLevel: (item: ItemDefinition) => number = () => 0,
+  ): void {
     this.options = options;
     this.onSelect = onSelect;
     this.objects.push(
@@ -30,6 +35,8 @@ export class ItemRewardChoices {
       }).setOrigin(0.5).setDepth(321),
     );
     options.forEach((option, index) => {
+      const ownedLevel = getOwnedLevel(option);
+      const offeredLevel = Math.min(option.maxLevel, ownedLevel + 1);
       const x = 250 + index * 230;
       const card = this.scene.add.rectangle(x, 300, 200, 230, 0x211b2a)
         .setStrokeStyle(2, option.color).setDepth(321).setInteractive({ useHandCursor: true });
@@ -42,10 +49,15 @@ export class ItemRewardChoices {
       const description = this.scene.add.text(x, 355, option.description, {
         fontFamily: "Microsoft YaHei", fontSize: "13px", color: "#b7aabe", align: "center", wordWrap: { width: 168 },
       }).setOrigin(0.5).setDepth(322);
+      const levelPreview = this.scene.add.text(x, 395,
+        `${ownedLevel ? `LV${ownedLevel} → ` : ""}LV${offeredLevel} · ${describeItemLevelEffect(option, offeredLevel)}`, {
+          fontFamily: "Microsoft YaHei", fontSize: "11px", color: "#78f3da", align: "center",
+          wordWrap: { width: 174 },
+        }).setOrigin(0.5).setDepth(322);
       card.on("pointerover", () => card.setFillStyle(0x382c46));
       card.on("pointerout", () => card.setFillStyle(0x211b2a));
       card.on("pointerdown", () => this.select(index));
-      this.objects.push(card, number, kind, name, description);
+      this.objects.push(card, number, kind, name, description, levelPreview);
     });
   }
 
