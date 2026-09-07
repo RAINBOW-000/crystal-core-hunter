@@ -52,8 +52,8 @@ UI 只读取 `RunSnapshot`。以后增加结算、暂停、调试面板或录像
 2. 实现 `major` 奖励池和每三级专属抽取规则。
 3. 增加“大剑剑气”作为首个行为型效果，验证武器模块与进化链。
 4. 建立道具栏及标签联动，支持武器、角色、道具之间的组合条件。
-5. 将敌人接触伤害、掉落和生成参数也迁入内容定义。
-6. 在内容扩张前加入固定随机种子和领域模型测试。
+5. ~~将敌人接触伤害、掉落和生成参数也迁入内容定义。~~ 已完成：`content/enemies/enemyCatalog` 统一保存稳定 ID、战斗数值、晶核奖励、物品掉率和生成时间轴。
+6. ~~在内容扩张前加入固定随机种子和领域模型测试。~~ 已完成：一局游戏从 URL 或自动生成的 seed 派生独立玩法随机流，并覆盖敌人目录、生成阈值与可复现序列测试。
 
 ## 本轮新增的规则边界
 
@@ -68,6 +68,8 @@ UI 只读取 `RunSnapshot`。以后增加结算、暂停、调试面板或录像
 - Boss 生命阶段由 `domain/combat/BossPhase` 计算，表现层依据阶段叠加环射、瞄准散射和冲锋行为。
 - `domain/meta/MetaUnlockProgression` 负责胜利宝箱候选和永久解锁集合；`MetaUnlockStorage` 只负责版本化本地存档，局内掉落池在开局时读取一次快照。
 - `domain/world/HoldInteraction` 独立计算按住开采进度与中断；`RareVeinSystem` 负责生成、距离判定和表现，成功后由应用层暂停并打开道具奖励界面。
+- `content/enemies/enemyCatalog` 描述敌人战斗数值、奖励和生成时间轴；`entities/enemies/createEnemy` 只负责把稳定 ID 适配为 Phaser 实体。
+- `domain/random/RunRandom` 从单局 seed 派生互相隔离的玩法随机流；粒子散射等纯视觉随机不会改变刷怪、升级或掉落结果。
 
 ## 引擎迁移边界
 

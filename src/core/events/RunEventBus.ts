@@ -1,9 +1,9 @@
 import type { RunUpgradeChoice } from "../../domain/upgrades/RunUpgradeChoice";
-import type { EnemyKind } from "../../entities/Enemy";
+import type { EnemyId, EnemyKind } from "../../domain/enemies/EnemyDefinition";
 import type { CoreTier } from "../../domain/combat/EnemyCoreReward";
 
 export interface RunEventMap {
-  enemyDefeated: { x: number; y: number; experience: number; coreTier: CoreTier; kind: EnemyKind };
+  enemyDefeated: { x: number; y: number; experience: number; coreTier: CoreTier; kind: EnemyKind; enemyId: EnemyId };
   experienceCollected: { amount: number; coreCount: number };
   levelGained: { level: number; milestone: boolean };
   upgradeSelected: { level: number; upgrade: RunUpgradeChoice; rank: number };

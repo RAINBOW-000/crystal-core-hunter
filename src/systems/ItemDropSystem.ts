@@ -3,6 +3,7 @@ import type { ItemDefinition, ItemStack } from "../domain/items/ItemDefinition";
 import type { ItemInventory } from "../domain/items/ItemInventory";
 import type { Player } from "../entities/Player";
 import { pickEligibleItem } from "../domain/items/ItemDropPool";
+import type { RandomSource } from "../domain/random/RunRandom";
 
 type WorldItem = Phaser.Physics.Arcade.Sprite & { definition: ItemDefinition };
 
@@ -19,13 +20,14 @@ export class ItemDropSystem {
     player: Player,
     private readonly inventory: ItemInventory,
     private readonly callbacks: ItemDropCallbacks,
+    private readonly random: RandomSource = Math.random,
   ) {
     this.group = scene.physics.add.group();
     scene.physics.add.overlap(player, this.group, this.collect, undefined, this);
   }
 
   dropRandom(x: number, y: number, pool: readonly ItemDefinition[]): boolean {
-    const definition = pickEligibleItem(pool, (item) => this.inventory.canDrop(item));
+    const definition = pickEligibleItem(pool, (item) => this.inventory.canDrop(item), this.random);
     if (!definition) return false;
     const drop = this.group.create(x, y, "item-drop") as WorldItem;
     drop.definition = definition;

@@ -11,9 +11,9 @@ import {
   META_UNLOCKABLE_ITEMS,
 } from "../content/items/itemCatalog";
 import { WEAPON_DEFINITIONS, WEAPON_EVOLUTIONS, WEAPON_IDS, WEAPON_SKILLS } from "../content/weapons/weaponCatalog";
+import { getEnemyDefinition } from "../content/enemies/enemyCatalog";
 import { WeaponRack } from "../combat/WeaponRack";
 import {
-  ELITE_BUG_CONFIG,
   EXPERIENCE_CONFIG,
   GAME_HEIGHT,
   GAME_WIDTH,
@@ -28,6 +28,7 @@ import type { RunPhase, RunSnapshot } from "../domain/run/RunSnapshot";
 import { UpgradeProgression } from "../domain/upgrades/UpgradeProgression";
 import { WeaponProgression, type WeaponId } from "../domain/weapons/WeaponProgression";
 import { MetaUnlockProgression } from "../domain/meta/MetaUnlockProgression";
+import { RunRandom, shuffleWithRandom } from "../domain/random/RunRandom";
 import type { Enemy } from "../entities/Enemy";
 import { Player } from "../entities/Player";
 import { UpgradeSystem } from "../progression/UpgradeSystem";
@@ -80,6 +81,7 @@ export class RunSession {
   private character: CharacterDefinition = MINER_GUARD;
   private talentSystem!: CharacterTalentSystem;
   private pickupToast!: ItemPickupToast;
+  private runRandom!: RunRandom;
 
   constructor(private readonly scene: Phaser.Scene) {}
 
@@ -102,8 +104,9 @@ export class RunSession {
     this.replacementView = new ActiveItemReplacement(this.scene);
     this.itemRewardView = new ItemRewardChoices(this.scene);
     this.pickupToast = new ItemPickupToast(this.scene);
-    this.experience = new ExperienceModel(EXPERIENCE_CONFIG);
     const qaParameters = new URLSearchParams(window.location.search);
+    this.runRandom = new RunRandom(qaParameters.get("seed")?.trim() || Date.now().toString(36));
+    this.experience = new ExperienceModel(EXPERIENCE_CONFIG);
     const qaVictory = import.meta.env.DEV && qaParameters.has("qaVictory");
     const qaVeinReward = import.meta.env.DEV && qaParameters.has("qaVeinReward");
     const qaBoss = import.meta.env.DEV && qaParameters.has("qaBoss");
@@ -119,6 +122,7 @@ export class RunSession {
       META_UNLOCKABLE_ITEMS.map((item) => item.id),
       DEFAULT_UNLOCKED_ITEM_IDS,
       this.metaStorage.load(),
+      this.runRandom.stream("meta-unlocks"),
     );
     this.runItemPool = META_UNLOCKABLE_ITEMS.filter((item) => this.metaProgression.isUnlocked(item.id));
 
@@ -130,7 +134,7 @@ export class RunSession {
     this.itemDrops = new ItemDropSystem(this.scene, this.player, this.inventory, {
       onAcquired: (stack, upgraded) => this.onItemAcquired(stack, upgraded),
       onReplacementRequired: (item) => this.openItemReplacement(item),
-    });
+    }, this.runRandom.stream("item-drops"));
     this.hostileProjectiles = new HostileProjectileSystem(
       this.scene,
       this.player,
@@ -140,6 +144,11 @@ export class RunSession {
       this.scene,
       this.player,
       this.hostileProjectiles,
+      {
+        selection: this.runRandom.stream("enemy-selection"),
+        position: this.runRandom.stream("enemy-position"),
+        behavior: this.runRandom.stream("enemy-behavior"),
+      },
       () => {
         this.bossActive = true;
         this.hud.setHint("最终 Boss 晶巢领主出现！敌群仍在涌入", "#ffcf70");
@@ -158,7 +167,7 @@ export class RunSession {
     this.rareVeins = new RareVeinSystem(this.scene, this.player, {
       onMined: () => this.openRareVeinReward(),
       onHint: (message, color) => this.hud.setHint(message, color),
-    });
+    }, this.runRandom.stream("rare-veins"));
 
     this.bindRunEvents();
     this.scene.physics.add.overlap(
@@ -255,6 +264,7 @@ export class RunSession {
 
   getSnapshot(time: number): RunSnapshot {
     return {
+      runSeed: this.runRandom.seed,
       phase: this.phase,
       hp: this.player.hp,
       maxHp: this.player.stats.maxHp,
@@ -289,13 +299,14 @@ export class RunSession {
   }
 
   private bindRunEvents(): void {
-    this.events.on("enemyDefeated", ({ x, y, experience, coreTier, kind }) => {
+    this.events.on("enemyDefeated", ({ x, y, experience, coreTier, kind, enemyId }) => {
       if (kind === "boss") {
         this.events.emit("runEnded", { survived: true });
         return;
       }
       this.drops.drop(x, y, { experience, coreTier });
-      if (kind === "elite" && Math.random() < ELITE_BUG_CONFIG.itemDropChance + this.player.stats.luck) {
+      const definition = getEnemyDefinition(enemyId);
+      if (definition.itemDropChance > 0 && this.runRandom.stream("loot-rolls")() < definition.itemDropChance + this.player.stats.luck) {
         const evolutionIds = new Set(this.weaponProgression.getEligibleEvolutionItemIds());
         const evolutionPool = EVOLUTION_ITEM_CATALOG.filter((item) => evolutionIds.has(item.id));
         this.itemDrops.dropRandom(x + 12, y, [...this.runItemPool, ...evolutionPool]);
@@ -315,8 +326,11 @@ export class RunSession {
 
   private initializeWeaponProgression(initialWeapon: WeaponId): void {
     this.weapons.equip(initialWeapon);
-    this.weaponProgression = new WeaponProgression(initialWeapon, WEAPON_IDS, WEAPON_SKILLS, WEAPON_EVOLUTIONS);
-    const progression = new UpgradeProgression(MINER_UPGRADES);
+    this.weaponProgression = new WeaponProgression(
+      initialWeapon, WEAPON_IDS, WEAPON_SKILLS, WEAPON_EVOLUTIONS,
+      this.runRandom.stream("weapon-progression"),
+    );
+    const progression = new UpgradeProgression(MINER_UPGRADES, this.runRandom.stream("stat-upgrades"));
     const applicator = new UpgradeEffectApplicator(this.player, this.weapons);
     this.upgrades = new UpgradeSystem(this.scene, progression, this.weaponProgression, WEAPON_EVOLUTIONS, applicator, {
       onOpened: (_choices, milestone) => {
@@ -351,6 +365,7 @@ export class RunSession {
       experience: reward.experience,
       coreTier: reward.coreTier,
       kind: enemy.kind,
+      enemyId: enemy.definition.id,
     });
   }
 
@@ -458,8 +473,7 @@ export class RunSession {
     const evolutionIds = new Set(this.weaponProgression.getEligibleEvolutionItemIds());
     const evolutionPool = EVOLUTION_ITEM_CATALOG.filter((item) => evolutionIds.has(item.id));
     const eligible = [...this.runItemPool, ...evolutionPool].filter((item) => this.inventory.canDrop(item));
-    Phaser.Utils.Array.Shuffle(eligible);
-    const offer = eligible.slice(0, 3);
+    const offer = shuffleWithRandom(eligible, this.runRandom.stream("rare-vein-rewards")).slice(0, 3);
     if (offer.length === 0) {
       this.hud.setHint("晶脉中没有可获得的新道具", "#a99cb4");
       return;
@@ -510,6 +524,7 @@ export class RunSession {
     });
     this.experienceBar.update(state.level, state.xp, state.xpRequired);
     this.telemetry.update({
+      seed: state.runSeed,
       character: state.characterName,
       hp: state.hp,
       maxHp: state.maxHp,

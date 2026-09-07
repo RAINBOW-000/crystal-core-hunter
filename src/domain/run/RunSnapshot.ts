@@ -1,6 +1,7 @@
 export type RunPhase = "choosingCharacter" | "choosingInitialWeapon" | "playing" | "choosingUpgrade" | "choosingItemReward" | "choosingItemReplacement" | "choosingVictoryReward" | "won" | "lost";
 
 export interface RunSnapshot {
+  runSeed: string;
   phase: RunPhase;
   hp: number;
   maxHp: number;
