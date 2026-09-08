@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { RARE_VEIN_CONFIG, ROOM_BOUNDS, RUN_CONFIG } from "../config/gameConfig";
 import { HoldInteraction } from "../domain/world/HoldInteraction";
+import { randomBetween, type RandomSource } from "../domain/random/RunRandom";
 import type { Player } from "../entities/Player";
 
 interface RareVeinCallbacks {
@@ -23,6 +24,7 @@ export class RareVeinSystem {
     private readonly scene: Phaser.Scene,
     private readonly player: Player,
     private readonly callbacks: RareVeinCallbacks,
+    private readonly random: RandomSource = Math.random,
   ) {
     this.interactKey = scene.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.F);
     this.progressBack = scene.add.rectangle(0, 0, 72, 8, 0x17131f, 0.95).setDepth(70).setVisible(false);
@@ -86,8 +88,8 @@ export class RareVeinSystem {
     let y = nearPlayer ? this.player.y : ROOM_BOUNDS.y + ROOM_BOUNDS.height / 2;
     if (!nearPlayer) {
       for (let attempt = 0; attempt < 12; attempt += 1) {
-        x = Phaser.Math.Between(ROOM_BOUNDS.x + 48, ROOM_BOUNDS.x + ROOM_BOUNDS.width - 48);
-        y = Phaser.Math.Between(ROOM_BOUNDS.y + 48, ROOM_BOUNDS.y + ROOM_BOUNDS.height - 48);
+        x = randomBetween(this.random, ROOM_BOUNDS.x + 48, ROOM_BOUNDS.x + ROOM_BOUNDS.width - 48);
+        y = randomBetween(this.random, ROOM_BOUNDS.y + 48, ROOM_BOUNDS.y + ROOM_BOUNDS.height - 48);
         if (Phaser.Math.Distance.Between(x, y, this.player.x, this.player.y) >= RARE_VEIN_CONFIG.spawnPlayerClearance) break;
       }
     }

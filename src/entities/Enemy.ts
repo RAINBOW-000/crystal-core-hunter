@@ -1,9 +1,7 @@
 import Phaser from "phaser";
 import type { DamageSpec } from "../combat/Damage";
-import type { EnemyCoreReward } from "../domain/combat/EnemyCoreReward";
+import type { EnemyDefinition } from "../domain/enemies/EnemyDefinition";
 import type { Player } from "./Player";
-
-export type EnemyKind = "normal" | "elite" | "boss";
 
 export abstract class Enemy extends Phaser.Physics.Arcade.Sprite {
   hp: number;
@@ -11,8 +9,14 @@ export abstract class Enemy extends Phaser.Physics.Arcade.Sprite {
   lastHitAttack = -1;
   hurtUntil = 0;
 
-  protected constructor(scene: Phaser.Scene, x: number, y: number, texture: string, hp: number) {
-    super(scene, x, y, texture);
+  protected constructor(
+    scene: Phaser.Scene,
+    x: number,
+    y: number,
+    readonly definition: EnemyDefinition,
+    hp = definition.hp,
+  ) {
+    super(scene, x, y, definition.texture);
     this.hp = hp;
     this.maxHp = hp;
     scene.add.existing(this);
@@ -20,9 +24,9 @@ export abstract class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.setDepth(15).setBounce(0.2).setCollideWorldBounds(true);
   }
 
-  abstract readonly kind: EnemyKind;
-  abstract readonly contactDamage: number;
-  abstract readonly coreReward: EnemyCoreReward;
+  get kind() { return this.definition.kind; }
+  get contactDamage() { return this.definition.contactDamage; }
+  get coreReward() { return this.definition.coreReward; }
 
   abstract updateBehavior(time: number, player: Player): void;
 

@@ -1,16 +1,12 @@
 import Phaser from "phaser";
-import { BOSS_CONFIG } from "../../config/gameConfig";
+import { CRYSTAL_HIVE_BOSS } from "../../content/enemies/enemyCatalog";
 import { getBossPhase, type BossPhase } from "../../domain/combat/BossPhase";
 import { Enemy } from "../Enemy";
 import type { Player } from "../Player";
-import { getEnemyCoreReward } from "../../domain/combat/EnemyCoreReward";
 
 type FireProjectile = (x: number, y: number, velocityX: number, velocityY: number, damage: number, tint?: number) => void;
 
 export class CrystalHiveBoss extends Enemy {
-  readonly kind = "boss" as const;
-  readonly contactDamage = BOSS_CONFIG.contactDamage;
-  readonly coreReward = getEnemyCoreReward("boss");
   private nextVolleyAt = 0;
   private nextChargeAt = 0;
   private chargeUntil = 0;
@@ -18,7 +14,7 @@ export class CrystalHiveBoss extends Enemy {
   private displayedPhase: BossPhase = 1;
 
   constructor(scene: Phaser.Scene, x: number, y: number, private readonly fireProjectile: FireProjectile) {
-    super(scene, x, y, "crystal-hive-boss", BOSS_CONFIG.hp);
+    super(scene, x, y, CRYSTAL_HIVE_BOSS);
     this.body!.setSize(42, 37).setOffset(7, 10);
   }
 
@@ -49,7 +45,7 @@ export class CrystalHiveBoss extends Enemy {
       return;
     }
     const surge = 0.82 + Math.sin(time / 480) * 0.22;
-    this.setVelocity(chase.x * (BOSS_CONFIG.speed + phase * 6) * surge, chase.y * (BOSS_CONFIG.speed + phase * 6) * surge);
+    this.setVelocity(chase.x * (CRYSTAL_HIVE_BOSS.speed + phase * 6) * surge, chase.y * (CRYSTAL_HIVE_BOSS.speed + phase * 6) * surge);
   }
 
   private fireRadialVolley(phase: BossPhase): void {
@@ -60,7 +56,7 @@ export class CrystalHiveBoss extends Enemy {
       const angle = offset + index * Phaser.Math.PI2 / count;
       this.fireProjectile(
         this.x, this.y, Math.cos(angle) * speed, Math.sin(angle) * speed,
-        BOSS_CONFIG.projectileDamage + phase, phase === 3 ? 0xff6f91 : 0xd986ff,
+        CRYSTAL_HIVE_BOSS.projectileDamage + phase, phase === 3 ? 0xff6f91 : 0xd986ff,
       );
     }
     const ring = this.scene.add.circle(this.x, this.y, 45, phase === 3 ? 0xff6f91 : 0xd986ff, 0.18).setDepth(20);
@@ -74,7 +70,7 @@ export class CrystalHiveBoss extends Enemy {
       const spread = (index - (count - 1) / 2) * 0.13;
       const angle = baseAngle + spread;
       const speed = 145 + phase * 18;
-      this.fireProjectile(this.x, this.y, Math.cos(angle) * speed, Math.sin(angle) * speed, BOSS_CONFIG.projectileDamage + 2, 0xffa76d);
+      this.fireProjectile(this.x, this.y, Math.cos(angle) * speed, Math.sin(angle) * speed, CRYSTAL_HIVE_BOSS.projectileDamage + 2, 0xffa76d);
     }
   }
 }
