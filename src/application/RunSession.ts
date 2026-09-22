@@ -10,7 +10,7 @@ import {
   ITEM_CATALOG,
   META_UNLOCKABLE_ITEMS,
 } from "../content/items/itemCatalog";
-import { WEAPON_DEFINITIONS, WEAPON_EVOLUTIONS, WEAPON_IDS, WEAPON_SKILLS } from "../content/weapons/weaponCatalog";
+import { SECONDARY_WEAPON_IDS, WEAPON_DEFINITIONS, WEAPON_EVOLUTIONS, WEAPON_SKILLS } from "../content/weapons/weaponCatalog";
 import { getEnemyDefinition } from "../content/enemies/enemyCatalog";
 import { WeaponRack } from "../combat/WeaponRack";
 import {
@@ -45,12 +45,18 @@ import { Hud } from "../ui/Hud";
 import { showResultOverlay } from "../ui/ResultOverlay";
 import { UpgradeEffectApplicator } from "./UpgradeEffectApplicator";
 import { ActiveItemReplacement } from "../ui/ActiveItemReplacement";
-import { InitialWeaponSelection } from "../ui/InitialWeaponSelection";
 import { VictoryChestChoices } from "../ui/VictoryChestChoices";
 import { ItemRewardChoices } from "../ui/ItemRewardChoices";
 import { CharacterSelection } from "../ui/CharacterSelection";
 import type { CharacterDefinition } from "../domain/characters/CharacterDefinition";
 import { ItemPickupToast } from "../ui/ItemPickupToast";
+import { CombatVfxSystem } from "../systems/CombatVfxSystem";
+import { getStage, type StageDefinition } from "../content/stages/stageCatalog";
+import { ColdStatus } from "../domain/status/ColdStatus";
+import { FrostHazardSystem } from "../systems/FrostHazardSystem";
+import { CampaignStorage } from "../systems/CampaignStorage";
+import { recordRun, unlockWeaponEvolution } from "../domain/campaign/CampaignProfile";
+import { gameAudio } from "../systems/ProceduralAudio";
 
 /** Application layer for one run. GameScene only creates and ticks this session. */
 export class RunSession {
@@ -82,8 +88,25 @@ export class RunSession {
   private talentSystem!: CharacterTalentSystem;
   private pickupToast!: ItemPickupToast;
   private runRandom!: RunRandom;
+  private vfx!: CombatVfxSystem;
+  private readonly stage: StageDefinition;
+  private readonly seed: string;
+  private cold!: ColdStatus;
+  private frost!: FrostHazardSystem;
+  private coldText!: Phaser.GameObjects.Text;
+  private freezeText!: Phaser.GameObjects.Text;
+  private pauseObjects: Phaser.GameObjects.GameObject[] = [];
+  private pauseKey!: Phaser.Input.Keyboard.Key;
+  private qteKeys!: Phaser.Input.Keyboard.Key[];
+  private echoTriggerCount = 0;
+  private batteryCoreCount = 0;
+  private lastSoundHitCount = 0;
+  private readonly campaignStorage = new CampaignStorage();
 
-  constructor(private readonly scene: Phaser.Scene) {}
+  constructor(private readonly scene: Phaser.Scene, options: { stageNumber?: number; seed?: string } = {}) {
+    this.stage = getStage(options.stageNumber ?? 1);
+    this.seed = options.seed ?? Date.now().toString(36);
+  }
 
   create(): void {
     this.phase = "choosingCharacter";
@@ -94,23 +117,29 @@ export class RunSession {
       ROOM_BOUNDS.height,
     );
     createPrototypeTextures(this.scene);
-    drawPrototypeRoom(this.scene, room);
+    drawPrototypeRoom(this.scene, room, this.stage.palette);
 
-    this.player = new Player(this.scene, GAME_WIDTH / 2, GAME_HEIGHT / 2, MINER_GUARD);
-    this.weapons = new WeaponRack(this.scene, this.player);
+    this.player = new Player(this.scene, room.centerX, room.centerY, MINER_GUARD);
     this.hud = new Hud(this.scene);
+    this.vfx = new CombatVfxSystem(this.scene, (level) => {
+      const labels = { low: "低", medium: "中", high: "高" } as const;
+      this.hud.setHint(`特效强度：${labels[level]} · 关键攻击预警保持完整`, "#78f3da");
+    });
+    this.weapons = new WeaponRack(this.scene, this.player, this.vfx);
     this.experienceBar = new ExperienceBar(this.scene);
     this.telemetry = new Telemetry();
     this.replacementView = new ActiveItemReplacement(this.scene);
     this.itemRewardView = new ItemRewardChoices(this.scene);
     this.pickupToast = new ItemPickupToast(this.scene);
     const qaParameters = new URLSearchParams(window.location.search);
-    this.runRandom = new RunRandom(qaParameters.get("seed")?.trim() || Date.now().toString(36));
+    this.runRandom = new RunRandom(qaParameters.get("seed")?.trim() || this.seed);
+    this.cold = new ColdStatus(this.runRandom.stream("cold-qte"));
     this.experience = new ExperienceModel(EXPERIENCE_CONFIG);
     const qaVictory = import.meta.env.DEV && qaParameters.has("qaVictory");
     const qaVeinReward = import.meta.env.DEV && qaParameters.has("qaVeinReward");
     const qaBoss = import.meta.env.DEV && qaParameters.has("qaBoss");
     const qaEnemies = import.meta.env.DEV && qaParameters.has("qaEnemies");
+    const qaSprites = import.meta.env.DEV && qaParameters.has("qaSprites");
     const qaItems = import.meta.env.DEV && qaParameters.has("qaItems");
     const qaItemReplacement = import.meta.env.DEV && qaParameters.has("qaItemReplacement");
     const qaMining = import.meta.env.DEV && qaParameters.has("qaMining");
@@ -124,7 +153,8 @@ export class RunSession {
       this.metaStorage.load(),
       this.runRandom.stream("meta-unlocks"),
     );
-    this.runItemPool = META_UNLOCKABLE_ITEMS.filter((item) => this.metaProgression.isUnlocked(item.id));
+    const stageItems = new Set(this.stage.stageItemIds);
+    this.runItemPool = ITEM_CATALOG.filter((item) => item.kind !== "evolution" && (stageItems.has(item.id) || (item.minimumStage === undefined && this.metaProgression.isUnlocked(item.id))));
 
     this.drops = new DropSystem(
       this.scene,
@@ -138,12 +168,24 @@ export class RunSession {
     this.hostileProjectiles = new HostileProjectileSystem(
       this.scene,
       this.player,
-      (damage, x, y) => this.applyEnemyDamage(damage, x, y),
+      (damage, x, y) => { this.applyEnemyDamage(damage, x, y); },
+      this.vfx,
+    );
+    this.frost = new FrostHazardSystem(
+      this.scene, this.player,
+      (amount) => this.addCold(amount),
+      (damage, x, y) => {
+        const outcome = this.applyEnemyDamage(damage, x, y);
+        return outcome !== undefined && outcome !== "ignored";
+      },
     );
     this.director = new SpawnDirector(
       this.scene,
       this.player,
       this.hostileProjectiles,
+      this.vfx,
+      this.stage,
+      this.frost,
       {
         selection: this.runRandom.stream("enemy-selection"),
         position: this.runRandom.stream("enemy-position"),
@@ -151,7 +193,7 @@ export class RunSession {
       },
       () => {
         this.bossActive = true;
-        this.hud.setHint("最终 Boss 晶巢领主出现！敌群仍在涌入", "#ffcf70");
+        this.hud.setHint(`最终 Boss ${this.stage.number === 2 ? "冰甲巨像" : "晶巢领主"}出现！敌群仍在涌入`, "#ffcf70");
       },
     );
     this.activeItems = new ActiveItemSystem(
@@ -162,12 +204,13 @@ export class RunSession {
       {
         onEnemyKilled: (enemy) => this.emitEnemyDefeated(enemy),
         onUsed: (message) => this.hud.setHint(message, "#78f3da"),
+        onClearCold: () => this.clearCold(),
       },
     );
     this.rareVeins = new RareVeinSystem(this.scene, this.player, {
       onMined: () => this.openRareVeinReward(),
       onHint: (message, color) => this.hud.setHint(message, color),
-    }, this.runRandom.stream("rare-veins"));
+    }, this.runRandom.stream("rare-veins"), this.stage.rareVeinSpawnTimesMs);
 
     this.bindRunEvents();
     this.scene.physics.add.overlap(
@@ -178,9 +221,23 @@ export class RunSession {
       this,
     );
     this.restartKey = this.scene.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.R);
-    this.scene.cameras.main.setBackgroundColor("#121019");
+    this.pauseKey = this.scene.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+    this.qteKeys = [Phaser.Input.Keyboard.KeyCodes.A, Phaser.Input.Keyboard.KeyCodes.B, Phaser.Input.Keyboard.KeyCodes.C, Phaser.Input.Keyboard.KeyCodes.D].map((code) => this.scene.input.keyboard!.addKey(code));
+    this.coldText = this.scene.add.text(GAME_WIDTH - 24, 74, "", { fontFamily: "Microsoft YaHei", fontSize: "13px", color: "#aeeeff" }).setOrigin(1, 0).setDepth(60).setScrollFactor(0);
+    this.freezeText = this.scene.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 92, "", { fontFamily: "monospace", fontSize: "28px", color: "#d9f7ff", backgroundColor: "#10283ddd", padding: { x: 18, y: 10 } }).setOrigin(0.5).setDepth(85).setVisible(false).setScrollFactor(0);
+    this.scene.cameras.main.setBackgroundColor(this.stage.number === 2 ? "#0d1b29" : "#121019");
     this.scene.physics.world.setBounds(room.x, room.y, room.width, room.height);
-    this.hud.setHint("选择猎人和初始武器后开始狩猎");
+    this.scene.cameras.main
+      .setBounds(room.x, room.y, room.width, room.height)
+      .setRoundPixels(true)
+      .startFollow(this.player, true, 0.14, 0.14);
+    this.hud.setHint(`第 ${this.stage.number} 关 · ${this.stage.name} · 选择猎人`);
+    const profile = this.campaignStorage.load();
+    this.campaignStorage.save({ ...profile, checkpointStage: this.stage.number, checkpointSeed: this.runRandom.seed });
+    gameAudio.setSettings(profile.sound);
+    const onBlur = () => { if (this.phase === "playing") this.openPause(); };
+    window.addEventListener("blur", onBlur);
+    this.scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => window.removeEventListener("blur", onBlur));
     this.scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.events.clear());
     this.scene.physics.pause();
     this.player.freeze();
@@ -188,9 +245,7 @@ export class RunSession {
       this.character = character;
       this.player.configureCharacter(character);
       this.talentSystem = new CharacterTalentSystem(this.player, character);
-      this.phase = "choosingInitialWeapon";
-      new InitialWeaponSelection(this.scene).open(WEAPON_DEFINITIONS, (weaponId) => {
-        this.initializeWeaponProgression(weaponId);
+      this.initializeWeaponProgression(character.initialWeapon);
         this.phase = "playing";
         this.scene.physics.resume();
         this.hud.setHint(`${character.name} · ${character.talentName} · 收集晶核升级`);
@@ -233,25 +288,51 @@ export class RunSession {
         if (qaVeinReward) this.scene.time.delayedCall(350, () => this.openRareVeinReward());
         if (qaBoss) this.scene.time.delayedCall(350, () => this.director.spawnBossForQa());
         if (qaEnemies) this.scene.time.delayedCall(350, () => this.director.spawnArchetypesForQa());
-      });
+        if (qaSprites) this.scene.time.delayedCall(350, () => {
+          this.director.spawnArchetypesForQa();
+          this.director.spawnBossForQa();
+          this.director.stop();
+        });
     });
     this.renderSnapshot(this.scene.time.now);
   }
 
   update(time: number, delta: number): void {
+    if (Phaser.Input.Keyboard.JustDown(this.pauseKey)) {
+      if (this.phase === "playing") this.openPause();
+      else if (this.phase === "paused") this.closePause();
+      return;
+    }
+    if (this.phase === "paused") return;
+    this.vfx.update();
     if (Phaser.Input.Keyboard.JustDown(this.restartKey)) {
-      this.scene.scene.restart();
+      this.scene.scene.restart({ stageNumber: this.stage.number, seed: this.runRandom.seed });
       return;
     }
     if (this.phase !== "playing") return;
 
-    this.player.updateController(time, this.scene.input.activePointer, this.weapons.lastAttackAt);
+    if (this.cold.frozen) {
+      this.qteKeys.forEach((key, index) => {
+        if (!Phaser.Input.Keyboard.JustDown(key)) return;
+        if (this.cold.press(["A", "B", "C", "D"][index])) {
+          this.player.setControlsLocked(false);
+          this.freezeText.setVisible(false);
+          gameAudio.play("thaw");
+          this.hud.setHint("冰封已解除", "#78f3da");
+        }
+      });
+      if (this.cold.frozen) this.freezeText.setText(`冰封！依次按下  ${this.cold.thawSequence.map((key, i) => i < this.cold.thawProgress ? "✓" : key).join("  ")}`);
+    }
+
+    this.player.updateController(time, this.scene.input.activePointer, this.weapons.lastAttackAt, this.weapons.attackFacingDuration);
     this.talentSystem.update(time);
     this.director.update(time, delta);
     if (this.phase !== "playing") return;
     this.rareVeins.update(this.director.elapsedMs, delta);
     if (this.phase !== "playing") return;
     this.hostileProjectiles.update(time);
+    this.frost.setIceCleats(Boolean(this.inventory.find("ice-cleats")));
+    this.frost.update(time);
     this.drops.update();
     this.activeItems.update(time, this.scene.input.activePointer);
     this.weapons.update(
@@ -259,6 +340,16 @@ export class RunSession {
       this.director.enemies,
       (enemy) => this.emitEnemyDefeated(enemy),
     );
+    if (this.weapons.hitCount > this.lastSoundHitCount) {
+      this.lastSoundHitCount = this.weapons.hitCount;
+      gameAudio.play("attack");
+    }
+    const echoLevel = this.inventory.find("echo-chip")?.level ?? 0;
+    while (echoLevel > 0 && this.weapons.hitCount >= (this.echoTriggerCount + 1) * 10) {
+      this.echoTriggerCount += 1;
+      this.activeItems.pulse(105 + echoLevel * 15, 2 + echoLevel * 2, time);
+    }
+    this.coldText.setText(this.stage.number === 2 ? `寒冷 ${"◆".repeat(this.cold.stacks)}${"◇".repeat(5 - this.cold.stacks)} · 第 ${this.stage.number} 关` : `第 ${this.stage.number} 关 · ${this.stage.name}`);
     this.renderSnapshot(time);
   }
 
@@ -316,7 +407,15 @@ export class RunSession {
       if (this.talentSystem.onCoresCollected(coreCount)) {
         this.hud.setHint(`${this.character.talentName}：晶核能量恢复生命`, "#78f3da");
       }
-      this.experience.add(amount).forEach((level) => {
+      this.batteryCoreCount += coreCount;
+      const batteryLevel = this.inventory.find("core-battery")?.level ?? 0;
+      if (batteryLevel > 0 && this.batteryCoreCount >= 8) {
+        this.batteryCoreCount %= 8;
+        this.activeItems.reduceCooldowns(batteryLevel * 1000);
+        this.hud.setHint(`晶核蓄电池：主动道具冷却 -${batteryLevel} 秒`, "#ffdf87");
+      }
+      gameAudio.play("pickup");
+      this.experience.add(amount * this.stage.experienceMultiplier).forEach((level) => {
         this.events.emit("levelGained", { level, milestone: level % 3 === 0 });
       });
     });
@@ -327,7 +426,7 @@ export class RunSession {
   private initializeWeaponProgression(initialWeapon: WeaponId): void {
     this.weapons.equip(initialWeapon);
     this.weaponProgression = new WeaponProgression(
-      initialWeapon, WEAPON_IDS, WEAPON_SKILLS, WEAPON_EVOLUTIONS,
+      initialWeapon, SECONDARY_WEAPON_IDS, WEAPON_SKILLS, WEAPON_EVOLUTIONS,
       this.runRandom.stream("weapon-progression"),
     );
     const progression = new UpgradeProgression(MINER_UPGRADES, this.runRandom.stream("stat-upgrades"));
@@ -346,12 +445,16 @@ export class RunSession {
       onClosed: (selected, rank, level) => {
         this.phase = "playing";
         this.scene.physics.resume();
+        gameAudio.play("upgrade");
         this.hud.setHint(`获得奖励：${selected.name} · 等阶 ${rank}`, "#ffcf70");
         this.events.emit("upgradeSelected", { level, upgrade: selected, rank });
         this.renderSnapshot(this.scene.time.now);
       },
       onBlocked: () => this.hud.setHint("高级升级已暂存：获得对应进化材料后补发", "#ffcf70"),
-      onEvolved: (_weaponId, evolution, stage) => {
+      onEvolved: (weaponId, evolution, stage) => {
+        if (["greatsword", "crystal-crossbow", "fission-staff"].includes(weaponId)) {
+          this.campaignStorage.save(unlockWeaponEvolution(this.campaignStorage.load(), weaponId, evolution.routeId));
+        }
         this.hud.setHint(`武器进化：${evolution.name} · 第 ${stage} 阶`, "#ff9cff");
       },
     });
@@ -372,18 +475,21 @@ export class RunSession {
   private readonly onPlayerContact = (_player: unknown, enemyObject: unknown): void => {
     const enemy = enemyObject as Enemy;
     if (this.phase !== "playing" || !enemy.active) return;
-    this.applyEnemyDamage(enemy.contactDamage, enemy.x, enemy.y);
+    const outcome = this.applyEnemyDamage(enemy.contactDamage, enemy.x, enemy.y);
+    if (outcome && outcome !== "ignored" && enemy.definition.coldOnContact) this.addCold(enemy.definition.coldOnContact);
   };
 
-  private applyEnemyDamage(amount: number, sourceX: number, sourceY: number): void {
-    if (this.phase !== "playing") return;
+  private applyEnemyDamage(amount: number, sourceX: number, sourceY: number): import("../entities/Player").DamageOutcome | undefined {
+    if (this.phase !== "playing") return undefined;
     const outcome = this.player.takeContactDamage(
-      this.talentSystem.modifyIncomingDamage(amount),
+      this.talentSystem.modifyIncomingDamage(amount) * (this.cold.frozen ? 0.5 : 1),
       sourceX,
       sourceY,
       this.scene.time.now,
     );
+    if (outcome === "damaged") gameAudio.play("damage");
     if (outcome === "dead") this.events.emit("runEnded", { survived: false });
+    return outcome;
   }
 
   private finishRun(survived: boolean): void {
@@ -395,9 +501,18 @@ export class RunSession {
     this.hostileProjectiles.freeze();
     const seconds = Math.floor(this.director.elapsedMs / 1000);
     const summary = `等级 ${this.experience.level} · 命中 ${this.weapons.hitCount} 次 · 生存 ${seconds} 秒`;
+    const oldProfile = this.campaignStorage.load();
+    const recorded = recordRun(oldProfile, { survived, elapsedMs: this.director.elapsedMs, level: this.experience.level, hits: this.weapons.hitCount, stage: this.stage.number });
+    const nextStage = survived ? Math.min(2, this.stage.number + 1) : 1;
+    const nextSeed = crypto.randomUUID();
+    this.campaignStorage.save({ ...recorded, checkpointStage: nextStage, checkpointSeed: nextSeed });
     if (!survived) {
       this.phase = "lost";
-      showResultOverlay(this.scene, `${this.character.name}倒下了`, summary);
+      gameAudio.play("loss");
+      showResultOverlay(this.scene, `${this.character.name}倒下了`, `${summary} · 关卡进度已重置`, [
+        { label: "重新挑战第一关", onClick: () => this.scene.scene.restart({ stageNumber: 1, seed: nextSeed }) },
+        { label: "返回主菜单", onClick: () => this.scene.scene.start("menu") },
+      ]);
       this.renderSnapshot(this.scene.time.now);
       return;
     }
@@ -408,7 +523,7 @@ export class RunSession {
       .filter((item): item is ItemDefinition => item !== undefined);
     if (offer.length === 0) {
       this.phase = "won";
-      showResultOverlay(this.scene, "狩猎成功 · 内容已全部解锁", summary);
+      this.showVictoryResult("狩猎成功 · 内容已全部解锁", summary, nextSeed);
       this.renderSnapshot(this.scene.time.now);
       return;
     }
@@ -418,7 +533,7 @@ export class RunSession {
       this.metaProgression.unlock(item.id);
       this.metaStorage.save(this.metaProgression.unlockedIds);
       this.phase = "won";
-      showResultOverlay(this.scene, `永久解锁：${item.name}`, `${summary} · 下一局进入掉落池`);
+      this.showVictoryResult(`永久解锁：${item.name}`, `${summary} · 下一局进入掉落池`, nextSeed);
       this.renderSnapshot(this.scene.time.now);
     });
     this.renderSnapshot(this.scene.time.now);
@@ -427,6 +542,7 @@ export class RunSession {
   private onItemAcquired(stack: ItemStack, upgraded: boolean): void {
     if (stack.definition.kind === "passive") this.applyPassiveItem(stack.definition);
     this.pickupToast.show(stack, upgraded);
+    gameAudio.play(upgraded ? "upgrade" : "pickup");
     const action = upgraded ? "升级" : "获得";
     this.hud.setHint(`${action}道具：${stack.definition.name} · LV${stack.level}`, "#ffcf70");
     if (stack.definition.kind === "evolution") this.upgrades.receiveEvolutionItem(stack.definition.id);
@@ -440,6 +556,76 @@ export class RunSession {
     if (item.passiveEffect === "maxHp") this.player.increaseMaxHp(15, 15);
     if (item.passiveEffect === "moveSpeed") this.player.multiplyMoveSpeed(1.06);
     if (item.passiveEffect === "damage") this.player.multiplyDamage(1.1);
+    if (item.passiveEffect === "iceCleats") this.player.multiplyMoveSpeed(1.06);
+  }
+
+  private addCold(amount: number): void {
+    if (this.stage.number !== 2) return;
+    const frozenNow = this.cold.add(amount);
+    if (frozenNow) {
+      this.player.setControlsLocked(true);
+      this.freezeText.setVisible(true);
+      gameAudio.play("freeze");
+      this.hud.setHint("已被冰封：按显示的 A/B/C/D 顺序挣脱", "#bceeff");
+    }
+  }
+
+  private clearCold(): void {
+    this.cold.clear();
+    this.player.setControlsLocked(false);
+    this.freezeText.setVisible(false);
+  }
+
+  private showVictoryResult(title: string, summary: string, nextSeed: string): void {
+    gameAudio.play("win");
+    if (this.stage.number === 1) {
+      showResultOverlay(this.scene, title, summary, [
+        { label: "下一关 · 极寒矿脉", onClick: () => this.scene.scene.restart({ stageNumber: 2, seed: nextSeed }) },
+        { label: "返回主菜单", onClick: () => this.scene.scene.start("menu") },
+      ]);
+      return;
+    }
+    showResultOverlay(this.scene, "当前版本已完成", `${title} · ${summary}`, [
+      { label: "返回主菜单", onClick: () => this.scene.scene.start("menu") },
+    ]);
+  }
+
+  private openPause(): void {
+    if (this.phase !== "playing") return;
+    this.phase = "paused";
+    this.scene.physics.pause();
+    this.scene.time.paused = true;
+    this.scene.tweens.pauseAll();
+    this.player.freeze();
+    const nodes = this.pauseObjects;
+    nodes.push(this.scene.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x070a0e, 0.78).setInteractive().setDepth(110).setScrollFactor(0));
+    nodes.push(this.scene.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, 430, 330, 0x111a21, 0.98).setStrokeStyle(2, 0x527c7b).setDepth(111).setScrollFactor(0));
+    nodes.push(this.scene.add.text(GAME_WIDTH / 2, 150, "战斗暂停", { fontFamily: "Microsoft YaHei", fontSize: "32px", color: "#78f3da", fontStyle: "bold" }).setOrigin(0.5).setDepth(112).setScrollFactor(0));
+    const addButton = (y: number, label: string, action: () => void) => {
+      const back = this.scene.add.rectangle(GAME_WIDTH / 2, y, 280, 38, 0x263f50).setStrokeStyle(1, 0x78f3da).setInteractive({ useHandCursor: true }).setDepth(112).setScrollFactor(0);
+      const text = this.scene.add.text(GAME_WIDTH / 2, y, label, { fontFamily: "Microsoft YaHei", fontSize: "16px", color: "#effffb" }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(113).setScrollFactor(0);
+      back.on("pointerdown", action); text.on("pointerdown", action); nodes.push(back, text);
+    };
+    addButton(220, "继续游戏", () => this.closePause());
+    addButton(266, "重新开始当前关", () => this.scene.scene.restart({ stageNumber: this.stage.number, seed: this.runRandom.seed }));
+    addButton(312, "音效开关", () => {
+      const profile = this.campaignStorage.load(); profile.sound.muted = !profile.sound.muted; this.campaignStorage.save(profile); gameAudio.setSettings(profile.sound);
+      this.hud.setHint(profile.sound.muted ? "音效已静音" : "音效已开启");
+    });
+    addButton(358, "返回主菜单", () => {
+      this.closePause();
+      this.scene.scene.pause("game"); this.scene.scene.launch("menu", { suspended: true });
+    });
+  }
+
+  private closePause(): void {
+    if (this.phase !== "paused") return;
+    this.pauseObjects.forEach((object) => object.destroy());
+    this.pauseObjects = [];
+    this.phase = "playing";
+    this.scene.time.paused = false;
+    this.scene.tweens.resumeAll();
+    this.scene.physics.resume();
   }
 
   private openItemReplacement(item: ItemDefinition, alreadyPaused = false): void {
@@ -521,6 +707,8 @@ export class RunSession {
       bossMaxHp: state.bossMaxHp,
       equippedWeapons: state.equippedWeapons,
       characterName: state.characterName,
+      stageName: this.stage.name,
+      bossName: this.stage.number === 2 ? "冰甲巨像" : "晶巢领主",
     });
     this.experienceBar.update(state.level, state.xp, state.xpRequired);
     this.telemetry.update({

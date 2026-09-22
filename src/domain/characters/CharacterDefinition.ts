@@ -20,8 +20,10 @@ export interface CharacterDefinition {
   description: string;
   texture: string;
   color: number;
+  initialWeapon: WeaponId;
   stats: CharacterStats;
   talentName: string;
   talentDescription: string;
   talent: CharacterTalent;
 }
+import type { WeaponId } from "../weapons/WeaponProgression";

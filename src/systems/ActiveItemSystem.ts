@@ -17,6 +17,7 @@ export interface ActiveItemSlotState {
 interface ActiveItemCallbacks {
   onEnemyKilled: (enemy: Enemy) => void;
   onUsed: (message: string) => void;
+  onClearCold: () => void;
 }
 
 export class ActiveItemSystem {
@@ -74,6 +75,13 @@ export class ActiveItemSystem {
     });
   }
 
+  reduceCooldowns(amountMs: number): void { this.cooldowns.reduceAll(amountMs); }
+
+  pulse(radius: number, damage: number, time: number, color = 0xd7b5ff): void {
+    this.damageArea(this.player.x, this.player.y, radius, damage, 360, time);
+    this.showRing(this.player.x, this.player.y, radius, color);
+  }
+
   private activate(
     effect: ActiveEffect | undefined,
     level: number,
@@ -98,6 +106,17 @@ export class ActiveItemSystem {
         enemy.setVelocity(0, 0);
       });
       this.showRing(this.player.x, this.player.y, 260, 0xc69cff);
+      return;
+    }
+    if (effect === "thawPulse") {
+      this.callbacks.onClearCold();
+      this.enemies.getChildren().forEach((child) => {
+        const enemy = child as Enemy;
+        if (Phaser.Math.Distance.Between(this.player.x, this.player.y, enemy.x, enemy.y) <= stats.radius!) {
+          enemy.hurtUntil = Math.max(enemy.hurtUntil, time + stats.durationMs!);
+        }
+      });
+      this.pulse(stats.radius!, stats.damage!, time, 0xffb87a);
       return;
     }
 

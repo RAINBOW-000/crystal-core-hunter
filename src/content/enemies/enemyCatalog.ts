@@ -6,44 +6,73 @@ import type {
   EnemySpawnPlan,
   RamEnemyDefinition,
   SpitterEnemyDefinition,
+  FrostTrailEnemyDefinition,
+  IceCallerEnemyDefinition,
+  FrostHunterEnemyDefinition,
+  ColossusEnemyDefinition,
 } from "../../domain/enemies/EnemyDefinition";
 
 export const CRYSTAL_BUG = {
   id: "crystal-bug", name: "晶壳虫", kind: "normal", texture: "crystal-bug",
-  hp: 3, speed: 45, contactDamage: 8, coreReward: { coreTier: 1, experience: 1 }, itemDropChance: 0,
+  hp: 3, speed: 45, contactDamage: 8, coreReward: { coreTier: 1, experience: 1 }, itemDropChance: 0, stage: 1,
   behavior: "chaser", stopDistance: 10,
 } as const satisfies ChaserEnemyDefinition;
 
 export const ELITE_CRYSTAL_BUG = {
   id: "elite-crystal-bug", name: "精英晶壳虫", kind: "elite", texture: "elite-crystal-bug",
-  hp: 28, speed: 52, contactDamage: 14, coreReward: { coreTier: 4, experience: 10 }, itemDropChance: 0.65,
+  hp: 28, speed: 52, contactDamage: 14, coreReward: { coreTier: 4, experience: 10 }, itemDropChance: 0.65, stage: 1,
   behavior: "chaser", stopDistance: 13,
 } as const satisfies ChaserEnemyDefinition;
 
 export const CRYSTAL_SPITTER = {
   id: "crystal-spitter", name: "晶刺喷吐者", kind: "normal", texture: "crystal-spitter",
-  hp: 5, speed: 40, contactDamage: 7, coreReward: { coreTier: 2, experience: 3 }, itemDropChance: 0,
+  hp: 5, speed: 40, contactDamage: 7, coreReward: { coreTier: 2, experience: 3 }, itemDropChance: 0, stage: 1,
   behavior: "spitter", preferredDistance: 225, shotCooldownMs: 1800, projectileSpeed: 155, projectileDamage: 7,
 } as const satisfies SpitterEnemyDefinition;
 
 export const CRYSTAL_RAM = {
   id: "crystal-ram", name: "裂晶冲锋兽", kind: "normal", texture: "crystal-ram",
-  hp: 9, speed: 52, contactDamage: 15, coreReward: { coreTier: 3, experience: 6 }, itemDropChance: 0,
+  hp: 9, speed: 52, contactDamage: 15, coreReward: { coreTier: 3, experience: 6 }, itemDropChance: 0, stage: 1,
   behavior: "ram", chargeSpeed: 285, telegraphMs: 560, chargeMs: 620, chargeCooldownMs: 2500,
 } as const satisfies RamEnemyDefinition;
 
 export const CRYSTAL_HIVE_BOSS = {
   id: "crystal-hive-boss", name: "晶巢领主", kind: "boss", texture: "crystal-hive-boss",
-  hp: 260, speed: 38, contactDamage: 22, coreReward: { coreTier: 4, experience: 0 }, itemDropChance: 0,
+  hp: 260, speed: 38, contactDamage: 22, coreReward: { coreTier: 4, experience: 0 }, itemDropChance: 0, stage: 1,
   behavior: "boss", projectileDamage: 9,
 } as const satisfies BossEnemyDefinition;
 
+export const FROST_TRAIL_BEAST = {
+  id: "frost-trail-beast", name: "霜痕兽", kind: "normal", texture: "frost-trail-beast",
+  hp: 8, speed: 78, contactDamage: 11, coreReward: { coreTier: 2, experience: 4 }, itemDropChance: 0, stage: 2,
+  coldOnContact: 1, behavior: "frostTrail", trailCooldownMs: 1250,
+} as const satisfies FrostTrailEnemyDefinition;
+
+export const ICE_VEIN_CALLER = {
+  id: "ice-vein-caller", name: "冰脉唤刺者", kind: "normal", texture: "ice-vein-caller",
+  hp: 11, speed: 48, contactDamage: 10, coreReward: { coreTier: 3, experience: 7 }, itemDropChance: 0, stage: 2,
+  coldOnContact: 1, behavior: "iceCaller", preferredDistance: 245, castCooldownMs: 2200,
+} as const satisfies IceCallerEnemyDefinition;
+
+export const FROST_RIDGE_HUNTER = {
+  id: "frost-ridge-hunter", name: "冰脊猎手", kind: "elite", texture: "frost-ridge-hunter",
+  hp: 48, speed: 66, contactDamage: 18, coreReward: { coreTier: 4, experience: 12 }, itemDropChance: 0.72, stage: 2,
+  coldOnContact: 1, behavior: "frostHunter", dashCooldownMs: 2100, dashSpeed: 315,
+} as const satisfies FrostHunterEnemyDefinition;
+
+export const ICE_ARMOR_COLOSSUS = {
+  id: "ice-armor-colossus", name: "冰甲巨像", kind: "boss", texture: "ice-armor-colossus",
+  hp: 380, speed: 42, contactDamage: 28, coreReward: { coreTier: 4, experience: 0 }, itemDropChance: 0, stage: 2,
+  coldOnContact: 2, behavior: "colossus", staggerThreshold: 55,
+} as const satisfies ColossusEnemyDefinition;
+
 export const ENEMY_CATALOG = [
   CRYSTAL_BUG, CRYSTAL_SPITTER, CRYSTAL_RAM, ELITE_CRYSTAL_BUG, CRYSTAL_HIVE_BOSS,
+  FROST_TRAIL_BEAST, ICE_VEIN_CALLER, FROST_RIDGE_HUNTER, ICE_ARMOR_COLOSSUS,
 ] as const satisfies readonly EnemyDefinition[];
 
 export const ENEMY_SPAWN_PLAN = {
-  durationMs: 12 * 60 * 1000,
+  durationMs: 7 * 60 * 1000,
   initialEnemies: 4,
   spawnIntervalMs: { start: 3200, end: 700 },
   enemyCap: { start: 10, end: 70 },
@@ -60,10 +89,10 @@ export const ENEMY_SPAWN_PLAN = {
       { enemyId: "crystal-ram", weight: 0.18 },
     ] },
   ],
-  eliteSpawns: [150000, 300000, 450000, 600000].map((atMs, index, entries) => ({
+  eliteSpawns: [90000, 180000, 270000, 360000].map((atMs, index, entries) => ({
     atMs, enemyId: "elite-crystal-bug" as const, reinforced: index === entries.length - 1,
   })),
-  bossSpawn: { atMs: 12 * 60 * 1000, enemyId: "crystal-hive-boss" },
+  bossSpawn: { atMs: 7 * 60 * 1000, enemyId: "crystal-hive-boss" },
 } as const satisfies EnemySpawnPlan;
 
 export function getEnemyDefinition(id: EnemyId): EnemyDefinition {

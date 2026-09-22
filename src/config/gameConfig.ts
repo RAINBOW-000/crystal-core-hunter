@@ -1,12 +1,15 @@
 export const GAME_WIDTH = 960;
 export const GAME_HEIGHT = 540;
 
-export const ROOM_BOUNDS = {
-  x: 56,
-  y: 68,
-  width: 848,
-  height: 420,
+export const WORLD_BOUNDS = {
+  x: 0,
+  y: 0,
+  width: 2400,
+  height: 1600,
 } as const;
+
+/** Legacy name kept for systems that only need the playable world rectangle. */
+export const ROOM_BOUNDS = WORLD_BOUNDS;
 
 export const PLAYER_CONFIG = {
   attackMoveSpeed: 105,

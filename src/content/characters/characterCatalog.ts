@@ -8,6 +8,7 @@ export const CRYSTAL_HUNTER: CharacterDefinition = {
   description: "生命较低，但移动、攻击和翻滚构筑能力更强。",
   texture: "player-hunter",
   color: 0xd39cff,
+  initialWeapon: "crystal-crossbow",
   stats: {
     maxHp: 90,
     moveSpeed: 205,
@@ -29,6 +30,7 @@ export const LEYLINE_PROSPECTOR: CharacterDefinition = {
   description: "擅长收集晶核和寻找稀有掉落，拥有稳定恢复能力。",
   texture: "player-prospector",
   color: 0xffc96b,
+  initialWeapon: "fission-staff",
   stats: {
     maxHp: 105,
     moveSpeed: 182,

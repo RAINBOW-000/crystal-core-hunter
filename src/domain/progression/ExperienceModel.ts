@@ -5,11 +5,13 @@ export interface ExperienceCurve {
 
 /** Pure progression model: it has no Phaser, UI, or entity dependency. */
 export class ExperienceModel {
-  level = 1;
+  level = 0;
   xp = 0;
   required: number;
+  private readonly curve: ExperienceCurve;
 
-  constructor(private readonly curve: ExperienceCurve) {
+  constructor(curve: ExperienceCurve) {
+    this.curve = curve;
     this.required = curve.baseRequirement;
   }
 

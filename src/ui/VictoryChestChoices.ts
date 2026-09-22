@@ -21,7 +21,7 @@ export class VictoryChestChoices {
     this.options = options;
     this.onSelect = onSelect;
     this.objects.push(
-      this.scene.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x08070d, 0.93).setDepth(400),
+      this.scene.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x080d12, 0.95).setDepth(400),
       this.scene.add.rectangle(GAME_WIDTH / 2, 102, 126, 72, 0x4b324f).setStrokeStyle(4, 0xffcf70).setDepth(401),
       this.scene.add.text(GAME_WIDTH / 2, 102, "胜利宝箱", {
         fontFamily: "Microsoft YaHei", fontSize: "18px", color: "#ffcf70", fontStyle: "bold",
@@ -33,7 +33,7 @@ export class VictoryChestChoices {
     options.forEach((option, index) => {
       const spacing = options.length === 1 ? 0 : 230;
       const x = GAME_WIDTH / 2 + (index - (options.length - 1) / 2) * spacing;
-      const card = this.scene.add.rectangle(x, 326, 205, 230, 0x211b2a)
+      const card = this.scene.add.rectangle(x, 326, 205, 230, 0x151d24)
         .setStrokeStyle(2, option.color).setDepth(401).setInteractive({ useHandCursor: true });
       const number = this.scene.add.text(x, 245, `${index + 1}`, { fontFamily: "monospace", fontSize: "14px", color: "#78f3da" }).setOrigin(0.5).setDepth(402);
       const kind = this.scene.add.text(x, 278, option.kind === "active" ? "主动道具" : "被动道具", {
@@ -45,11 +45,12 @@ export class VictoryChestChoices {
       const description = this.scene.add.text(x, 382, option.description, {
         fontFamily: "Microsoft YaHei", fontSize: "13px", color: "#b7aabe", align: "center", wordWrap: { width: 170 },
       }).setOrigin(0.5).setDepth(402);
-      card.on("pointerover", () => card.setFillStyle(0x382b44));
-      card.on("pointerout", () => card.setFillStyle(0x211b2a));
+      card.on("pointerover", () => card.setFillStyle(0x26343c));
+      card.on("pointerout", () => card.setFillStyle(0x151d24));
       card.on("pointerdown", () => this.select(index));
       this.objects.push(card, number, kind, name, description);
     });
+    this.objects.forEach((object) => (object as Phaser.GameObjects.Sprite).setScrollFactor(0));
   }
 
   private select(index: number): void {

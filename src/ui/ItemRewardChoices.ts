@@ -26,7 +26,7 @@ export class ItemRewardChoices {
     this.options = options;
     this.onSelect = onSelect;
     this.objects.push(
-      this.scene.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x08070d, 0.9).setDepth(320),
+      this.scene.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x080d12, 0.92).setDepth(320),
       this.scene.add.text(GAME_WIDTH / 2, 86, "稀有晶脉", {
         fontFamily: "Microsoft YaHei", fontSize: "30px", color: "#9d7cff", fontStyle: "bold",
       }).setOrigin(0.5).setDepth(321),
@@ -38,7 +38,7 @@ export class ItemRewardChoices {
       const ownedLevel = getOwnedLevel(option);
       const offeredLevel = Math.min(option.maxLevel, ownedLevel + 1);
       const x = 250 + index * 230;
-      const card = this.scene.add.rectangle(x, 300, 200, 230, 0x211b2a)
+      const card = this.scene.add.rectangle(x, 300, 200, 230, 0x151d24)
         .setStrokeStyle(2, option.color).setDepth(321).setInteractive({ useHandCursor: true });
       const number = this.scene.add.text(x, 218, `${index + 1}`, { fontFamily: "monospace", fontSize: "14px", color: "#78f3da" }).setOrigin(0.5).setDepth(322);
       const kindLabel = option.kind === "active" ? "主动" : option.kind === "passive" ? "被动" : "进化材料";
@@ -54,11 +54,12 @@ export class ItemRewardChoices {
           fontFamily: "Microsoft YaHei", fontSize: "11px", color: "#78f3da", align: "center",
           wordWrap: { width: 174 },
         }).setOrigin(0.5).setDepth(322);
-      card.on("pointerover", () => card.setFillStyle(0x382c46));
-      card.on("pointerout", () => card.setFillStyle(0x211b2a));
+      card.on("pointerover", () => card.setFillStyle(0x26343c));
+      card.on("pointerout", () => card.setFillStyle(0x151d24));
       card.on("pointerdown", () => this.select(index));
       this.objects.push(card, number, kind, name, description, levelPreview);
     });
+    this.objects.forEach((object) => (object as Phaser.GameObjects.Sprite).setScrollFactor(0));
   }
 
   private select(index: number): void {

@@ -15,6 +15,7 @@ export function getActiveItemEffectStats(effect: ActiveEffect, level: number): A
   if (effect === "regeneration") return { healing: 22 + safeLevel * 13 };
   if (effect === "drillSwarm") return { radius: 105 + safeLevel * 12, damage: 3 + safeLevel * 2, knockback: 330 };
   if (effect === "prismShield") return { durationMs: 900 + safeLevel * 500 };
+  if (effect === "thawPulse") return { radius: 150 + safeLevel * 18, damage: 2 + safeLevel * 2, durationMs: 900 + safeLevel * 250 };
   return { radius: 260, durationMs: 800 + safeLevel * 350 };
 }
 
@@ -34,6 +35,9 @@ export function describeItemLevelEffect(item: ItemDefinition, level: number): st
     maxHp: `最大生命 +${level * 15}`,
     moveSpeed: `移动速度 ×${Math.pow(1.06, level).toFixed(2)}`,
     damage: `武器伤害 ×${Math.pow(1.1, level).toFixed(2)}`,
+    iceCleats: `冰面减速免疫 · 移速 +${level * 6}%`,
+    echoChip: `每 10 次命中释放 LV${level} 冲击波`,
+    coreBattery: `每 8 个晶核使主动冷却 -${level} 秒`,
   };
   return item.passiveEffect ? valueByEffect[item.passiveEffect] : item.description;
 }

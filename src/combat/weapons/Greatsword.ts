@@ -5,12 +5,13 @@ import type { Player } from "../../entities/Player";
 import type { DamageSpec } from "../Damage";
 import type { Weapon } from "../Weapon";
 import type { WeaponRefinementStat } from "../../domain/weapons/WeaponProgression";
+import type { CombatVfxSystem } from "../../systems/CombatVfxSystem";
 
 export class Greatsword implements Weapon {
   readonly id = "greatsword" as const;
   combo = 0;
   hitCount = 0;
-  level = 1;
+  level = 0;
   lastAttackAt = -1000;
   private lastComboAt = -1000;
   private attackSerial = 0;
@@ -18,19 +19,14 @@ export class Greatsword implements Weapon {
   private damageMultiplier = 1;
   private rangeMultiplier = 1;
   private cooldownMultiplier = 1;
-  private readonly slash: Phaser.GameObjects.Arc;
   private readonly skills = new Set<string>();
   private readonly evolutions = new Set<string>();
 
   constructor(
     private readonly scene: Phaser.Scene,
     private readonly player: Player,
-  ) {
-    this.slash = scene.add.arc(player.x, player.y, 62, -55, 55, false, 0xf4d35e, 0.28)
-      .setStrokeStyle(4, 0xffef9f, 0.95)
-      .setDepth(18)
-      .setVisible(false);
-  }
+    private readonly vfx: CombatVfxSystem,
+  ) {}
 
   update(time: number): void {
     if (time - this.lastComboAt > GREATSWORD_CONFIG.comboWindow) this.combo = 0;
@@ -58,7 +54,10 @@ export class Greatsword implements Weapon {
     const baseRange = finisher ? GREATSWORD_CONFIG.finisherRange : GREATSWORD_CONFIG.normalRange;
     const range = baseRange * this.rangeMultiplier;
     const halfArc = finisher ? GREATSWORD_CONFIG.finisherHalfArc : GREATSWORD_CONFIG.normalHalfArc;
-    this.showSlash(range, halfArc, finisher);
+    this.vfx.showSwordSlash(this.player.x, this.player.y, this.player.aimAngle, range, this.combo);
+    this.player.playWeaponAttack(this.id, finisher);
+
+    let hitSomething = false;
 
     enemies.getChildren().forEach((child) => {
       const enemy = child as Enemy;
@@ -77,12 +76,15 @@ export class Greatsword implements Weapon {
       };
       const killed = enemy.receiveHit(spec, this.player.x, this.player.y, time);
       this.hitCount += 1;
-      this.showHitEffect(enemy.x, enemy.y);
+      hitSomething = true;
+      this.vfx.showHitBurst(enemy.x, enemy.y, enemyAngle, finisher);
       if (killed) {
         enemy.defeat();
         onEnemyKilled(enemy);
       }
     });
+
+    if (hitSomething) this.vfx.commitImpact(finisher);
 
     if (finisher && this.skills.has("greatsword-wave")) {
       this.damageWave(time, enemies, onEnemyKilled);
@@ -95,7 +97,6 @@ export class Greatsword implements Weapon {
 
   freeze(): void {
     this.enabled = false;
-    this.slash.setVisible(false);
   }
 
   multiplyDamage(multiplier: number): void {
@@ -201,40 +202,4 @@ export class Greatsword implements Weapon {
     this.scene.tweens.add({ targets: crack, alpha: 0, scale: 1.2, duration: 350, onComplete: () => crack.destroy() });
   }
 
-  private showSlash(range: number, halfArc: number, finisher: boolean): void {
-    this.slash
-      .setPosition(this.player.x, this.player.y)
-      .setRadius(range)
-      .setStartAngle(-halfArc)
-      .setEndAngle(halfArc)
-      .setRotation(this.player.aimAngle)
-      .setFillStyle(finisher ? 0x9fffe8 : 0xf4d35e, 0.26)
-      .setStrokeStyle(finisher ? 6 : 4, finisher ? 0x6af0d5 : 0xffef9f, 0.95)
-      .setScale(0.7)
-      .setAlpha(1)
-      .setVisible(true);
-    this.scene.tweens.add({
-      targets: this.slash,
-      scale: 1,
-      alpha: 0,
-      duration: 145,
-      ease: "Quad.Out",
-      onComplete: () => this.slash.setVisible(false),
-    });
-  }
-
-  private showHitEffect(x: number, y: number): void {
-    this.scene.cameras.main.shake(55, 0.0022);
-    for (let i = 0; i < 4; i += 1) {
-      const spark = this.scene.add.rectangle(x, y, 4, 4, i % 2 ? 0x6af0d5 : 0xffd166).setDepth(40);
-      this.scene.tweens.add({
-        targets: spark,
-        x: x + Phaser.Math.Between(-28, 28),
-        y: y + Phaser.Math.Between(-28, 28),
-        alpha: 0,
-        duration: 210,
-        onComplete: () => spark.destroy(),
-      });
-    }
-  }
 }

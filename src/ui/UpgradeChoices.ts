@@ -24,9 +24,10 @@ export class UpgradeChoices {
     this.options = options;
     this.onSelect = onSelect;
     this.objects.push(
-      this.scene.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x09080d, 0.88).setDepth(200),
+      this.scene.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x080d12, 0.91).setDepth(200),
+      this.scene.add.rectangle(GAME_WIDTH / 2, 104, 480, 76, 0x111a21, 0.98).setStrokeStyle(2, 0x3d555c).setDepth(201),
       this.scene.add.text(GAME_WIDTH / 2, 96, `${level % 3 === 0 ? "高级升级" : "等级提升"} · LV ${level}`, {
-        fontFamily: "Microsoft YaHei", fontSize: "32px", color: "#78f3da", fontStyle: "bold",
+        fontFamily: "Microsoft YaHei", fontSize: "32px", color: "#e7e0cf", fontStyle: "bold",
       }).setOrigin(0.5).setDepth(201),
       this.scene.add.text(GAME_WIDTH / 2, 132, "选择一项奖励", {
         fontFamily: "Microsoft YaHei", fontSize: "14px", color: "#a99cb4",
@@ -35,8 +36,8 @@ export class UpgradeChoices {
 
     options.forEach((option, index) => {
       const x = 250 + index * 230;
-      const card = this.scene.add.rectangle(x, 290, 200, 230, 0x211b2a)
-        .setStrokeStyle(2, 0x655576)
+      const card = this.scene.add.rectangle(x, 290, 200, 230, 0x151d24, 0.98)
+        .setStrokeStyle(2, level % 3 === 0 ? 0x9d7cff : 0x4b666d)
         .setDepth(201)
         .setInteractive({ useHandCursor: true });
       const number = this.scene.add.text(x, 205, `${index + 1}`, {
@@ -49,11 +50,12 @@ export class UpgradeChoices {
         fontFamily: "Microsoft YaHei", fontSize: "13px", color: "#b7aabe",
         align: "center", wordWrap: { width: 165 },
       }).setOrigin(0.5).setDepth(202);
-      card.on("pointerover", () => card.setFillStyle(0x30243b));
-      card.on("pointerout", () => card.setFillStyle(0x211b2a));
+      card.on("pointerover", () => card.setFillStyle(0x26343c));
+      card.on("pointerout", () => card.setFillStyle(0x151d24));
       card.on("pointerdown", () => this.select(index));
       this.objects.push(card, number, name, description);
     });
+    this.objects.forEach((object) => (object as Phaser.GameObjects.Sprite).setScrollFactor(0));
   }
 
   close(): void {

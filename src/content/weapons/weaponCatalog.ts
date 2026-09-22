@@ -13,9 +13,11 @@ export interface WeaponDefinition {
 
 export const WEAPON_DEFINITIONS: readonly WeaponDefinition[] = [
   { id: "greatsword", name: "荒铁大剑", description: "三段近战挥砍，第三击发动重击。", color: 0xffcf70 },
-  { id: "crystal-crossbow", name: "磁轨晶弩", description: "持续朝鼠标方向发射高速晶矢。", color: 0x70e8ff },
-  { id: "orbit-drill", name: "环轨钻头", description: "环绕角色切割靠近的敌人。", color: 0xe8d36f },
-  { id: "fission-staff", name: "裂变法杖", description: "自动寻找敌人并制造裂变爆破。", color: 0xd695ff },
+  { id: "crystal-crossbow", name: "晶核弩", description: "持续朝鼠标方向发射高速晶矢。", color: 0x70e8ff },
+  { id: "fission-staff", name: "裂变法杖", description: "朝鼠标方向制造裂变爆破。", color: 0xd695ff },
+  { id: "orbit-drill", name: "环轨钻头", description: "环绕角色近身切割敌人。", color: 0xe8d36f },
+  { id: "seismic-resonator", name: "地脉震荡器", description: "自动部署震荡装置，击退并震慑敌群。", color: 0xff9d68 },
+  { id: "refraction-satellite", name: "折光卫星", description: "自动标记远处强敌并降下折光束。", color: 0x9fdcff },
 ];
 
 const skill = (
@@ -37,16 +39,21 @@ export const WEAPON_SKILLS: readonly WeaponSkillDefinition[] = [
   skill("crossbow-pierce", "crystal-crossbow", "prism", "贯晶", "晶矢可以穿透一个敌人。"),
   skill("crossbow-split", "crystal-crossbow", "prism", "裂晶", "穿透后生成两枚侧向碎片。"),
   skill("crossbow-mark", "crystal-crossbow", "prism", "猎印", "连续命中同一目标会叠加猎印伤害。"),
-  skill("crossbow-string", "crystal-crossbow", "rain", "复弦", "提高磁轨晶弩射击速度。"),
+  skill("crossbow-string", "crystal-crossbow", "rain", "复弦", "提高晶核弩射击速度。"),
   skill("crossbow-spread", "crystal-crossbow", "rain", "散射", "额外发射两枚低伤害侧箭。"),
   skill("crossbow-pressure", "crystal-crossbow", "rain", "蓄压", "每第五次攻击释放强化齐射。"),
 
-  skill("drill-orbit", "orbit-drill", "planet", "扩轨", "扩大环绕半径和钻头碰撞范围。"),
-  skill("drill-extra", "orbit-drill", "planet", "复钻", "增加一枚环绕钻头。"),
-  skill("drill-armor", "orbit-drill", "planet", "碎甲", "连续切割会提高后续钻击伤害。"),
-  skill("drill-launch", "orbit-drill", "delve", "离轨", "钻头周期性冲向附近敌人。"),
-  skill("drill-return", "orbit-drill", "delve", "回旋", "离轨钻头返回时再次造成伤害。"),
-  skill("drill-explode", "orbit-drill", "delve", "爆芯", "钻头到达最远点时引发爆炸。"),
+  skill("drill-extra", "orbit-drill", "secondary", "双重钻组", "增加一枚环绕钻头。"),
+  skill("drill-bearing", "orbit-drill", "secondary", "高速轴承", "提高转速与接触伤害频率。"),
+  skill("drill-return", "orbit-drill", "secondary", "回收轨道", "周期性冲向强敌并沿轨道返回。"),
+
+  skill("seismic-amplifier", "seismic-resonator", "secondary", "扩幅线圈", "扩大震荡范围。"),
+  skill("seismic-deployment", "seismic-resonator", "secondary", "快速部署", "缩短部署与攻击间隔。"),
+  skill("seismic-aftershock", "seismic-resonator", "secondary", "二次余震", "主震后追加一次较弱余震。"),
+
+  skill("satellite-threat", "refraction-satellite", "secondary", "威胁测绘", "优先锁定精英、首领和高生命目标。"),
+  skill("satellite-lens", "refraction-satellite", "secondary", "聚焦透镜", "提高折光束伤害与范围。"),
+  skill("satellite-calibration", "refraction-satellite", "secondary", "快速校准", "缩短锁定与攻击间隔。"),
 
   skill("staff-split", "fission-staff", "critical", "裂变", "法弹命中后分裂成两枚碎片。"),
   skill("staff-conduct", "fission-staff", "critical", "传导", "裂变碎片会寻找附近的新目标。"),
@@ -61,13 +68,16 @@ export const WEAPON_EVOLUTIONS: readonly WeaponEvolutionDefinition[] = [
   { weaponId: "greatsword", routeId: "iron", requiredItemId: "leyline-forge-core", name: "镇岳锋", description: "第三击重砸并制造震裂。" },
   { weaponId: "crystal-crossbow", routeId: "prism", requiredItemId: "prism-guide-rail", name: "棱光长钉", description: "强化穿透、裂晶与追踪猎印。" },
   { weaponId: "crystal-crossbow", routeId: "rain", requiredItemId: "hive-string-box", name: "晶雨连弩", description: "强化齐射化为连续箭雨。" },
-  { weaponId: "orbit-drill", routeId: "planet", requiredItemId: "orbital-magnetic-bearing", name: "行星钻环", description: "增加钻头、转速与强化切割。" },
-  { weaponId: "orbit-drill", routeId: "delve", requiredItemId: "deep-blast-drill-core", name: "深渊掘进机", description: "锁定强敌并制造爆破晶区。" },
+  { weaponId: "orbit-drill", routeId: "secondary", requiredItemId: "star-orbit-axis", name: "行星钻阵", description: "内外两层钻组反向旋转切割。" },
+  { weaponId: "seismic-resonator", routeId: "secondary", requiredItemId: "resonance-core", name: "大陆共振", description: "三台装置连续引发大范围共振。" },
+  { weaponId: "refraction-satellite", routeId: "secondary", requiredItemId: "solar-prism", name: "天穹折光阵", description: "三颗卫星构成三角锁定并降下巨型光束。" },
   { weaponId: "fission-staff", routeId: "critical", requiredItemId: "critical-crystal-orb", name: "临界裂变", description: "次级裂变并扩大核心爆炸。" },
   { weaponId: "fission-staff", routeId: "domain", requiredItemId: "leyline-staff-ring", name: "共鸣晶域", description: "晶种连接成持续伤害区域。" },
 ];
 
 export const WEAPON_IDS = WEAPON_DEFINITIONS.map((weapon) => weapon.id);
+export const PRIMARY_WEAPON_IDS: readonly WeaponId[] = ["greatsword", "crystal-crossbow", "fission-staff"];
+export const SECONDARY_WEAPON_IDS: readonly WeaponId[] = ["orbit-drill", "seismic-resonator", "refraction-satellite"];
 
 export function getWeaponDefinition(id: WeaponId): WeaponDefinition {
   const weapon = WEAPON_DEFINITIONS.find((candidate) => candidate.id === id);

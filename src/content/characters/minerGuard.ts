@@ -7,6 +7,7 @@ export const MINER_GUARD: CharacterDefinition = {
   description: "高生命的近战角色，擅长用大剑控制敌群。",
   texture: "player",
   color: 0x6af0d5,
+  initialWeapon: "greatsword",
   stats: {
     maxHp: 120,
     moveSpeed: 185,

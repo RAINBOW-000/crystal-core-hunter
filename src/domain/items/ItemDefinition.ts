@@ -6,7 +6,8 @@ export type ActiveEffect =
   | "regeneration"
   | "drillSwarm"
   | "prismShield"
-  | "timeAnchor";
+  | "timeAnchor"
+  | "thawPulse";
 
 export type PassiveEffect =
   | "armor"
@@ -14,7 +15,10 @@ export type PassiveEffect =
   | "cooldown"
   | "maxHp"
   | "moveSpeed"
-  | "damage";
+  | "damage"
+  | "iceCleats"
+  | "echoChip"
+  | "coreBattery";
 
 export interface ItemDefinition {
   id: string;
@@ -27,6 +31,7 @@ export interface ItemDefinition {
   passiveEffect?: PassiveEffect;
   cooldownMs?: number;
   initiallyUnlocked?: boolean;
+  minimumStage?: number;
 }
 
 export interface ItemStack {

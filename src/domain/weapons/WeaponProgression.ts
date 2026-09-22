@@ -1,4 +1,10 @@
-export type WeaponId = "greatsword" | "crystal-crossbow" | "orbit-drill" | "fission-staff";
+export type WeaponId =
+  | "greatsword"
+  | "crystal-crossbow"
+  | "fission-staff"
+  | "orbit-drill"
+  | "seismic-resonator"
+  | "refraction-satellite";
 export type EvolutionStage = 0 | 1 | 2;
 export type WeaponRefinementStat = "power" | "frequency" | "scale";
 
@@ -88,7 +94,7 @@ export class WeaponProgression {
       .map((weaponId) => ({ weaponId, skills: this.getEligibleSkills(weaponId) }))
       .filter((entry) => entry.skills.length > 0);
     if (pools.length === 0) {
-      if (this.equippedWeapons.some((id) => this.ensureState(id).evolutionStage < 2)) {
+      if (this.equippedWeapons.some((id) => !this.isFullyEvolved(id))) {
         this.pendingAdvancedUpgrades += 1;
       }
       return [];
@@ -102,25 +108,10 @@ export class WeaponProgression {
     return this.shuffle([...guaranteed, ...this.shuffle(remaining).slice(0, 1)]);
   }
 
-  /** Produces a strict three-choice advanced offer, using repeatable refinements only as filler. */
+  /** Produces up to three meaningful upgrades; post-evolution filler is intentionally deferred. */
   createAdvancedOffer(): readonly WeaponAdvancedOption[] {
     const skills = this.createCombinedSkillOffer();
-    if (skills.length === 0 && !this.allEquippedFullyEvolved) return [];
-    const options: WeaponAdvancedOption[] = skills.map((skill) => ({ kind: "skill", skill }));
-    const stats: readonly WeaponRefinementStat[] = ["power", "frequency", "scale"];
-    const refinements = this.shuffle(this.equippedWeapons.flatMap((weaponId) =>
-      stats.map((stat) => ({ kind: "refinement" as const, weaponId, stat })),
-    ));
-    const represented = new Set(skills.map((skill) => skill.weaponId));
-    while (options.length < 3) {
-      const preferredIndex = refinements.findIndex((entry) => !represented.has(entry.weaponId));
-      const index = preferredIndex >= 0 ? preferredIndex : 0;
-      const refinement = refinements.splice(index, 1)[0];
-      if (!refinement) break;
-      options.push(refinement);
-      represented.add(refinement.weaponId);
-    }
-    return this.shuffle(options);
+    return skills.map((skill) => ({ kind: "skill", skill }));
   }
 
   selectSkill(skillId: string): void {
@@ -139,7 +130,7 @@ export class WeaponProgression {
 
   tryEvolve(weaponId: WeaponId): EvolutionResult {
     const state = this.ensureState(weaponId);
-    if (state.evolutionStage >= 2 || !state.firstRouteId) {
+    if (this.isFullyEvolved(weaponId) || !state.firstRouteId) {
       return { evolved: false, stage: state.evolutionStage, reissueAdvancedUpgrade: false };
     }
     const completedRoutes = this.getCompletedRouteIds(weaponId);
@@ -169,13 +160,13 @@ export class WeaponProgression {
   }
 
   get allEquippedFullyEvolved(): boolean {
-    return this.equippedWeapons.every((weaponId) => this.ensureState(weaponId).evolutionStage >= 2);
+    return this.equippedWeapons.every((weaponId) => this.isFullyEvolved(weaponId));
   }
 
   getEligibleEvolutionItemIds(): readonly string[] {
     return this.equippedWeapons.flatMap((weaponId) => {
       const state = this.ensureState(weaponId);
-      if (!state.firstRouteId || state.evolutionStage >= 2) return [];
+      if (!state.firstRouteId || this.isFullyEvolved(weaponId)) return [];
       const targetRouteId = state.evolutionStage === 0
         ? state.firstRouteId
         : this.evolutions.find((entry) => entry.weaponId === weaponId && entry.routeId !== state.firstRouteId)?.routeId;
@@ -200,6 +191,11 @@ export class WeaponProgression {
     if (state.evolutionStage === 0) return all.filter((skill) => skill.routeId === state.firstRouteId);
     if (state.evolutionStage === 1) return all.filter((skill) => skill.routeId !== state.firstRouteId);
     return [];
+  }
+
+  private isFullyEvolved(weaponId: WeaponId): boolean {
+    const maxStage = new Set(this.evolutions.filter((entry) => entry.weaponId === weaponId).map((entry) => entry.routeId)).size;
+    return this.ensureState(weaponId).evolutionStage >= maxStage;
   }
 
   private ensureState(weaponId: WeaponId): WeaponState {

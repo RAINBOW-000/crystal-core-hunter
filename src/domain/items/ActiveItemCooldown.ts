@@ -15,4 +15,8 @@ export class ActiveItemCooldowns {
     const remainingMs = Math.max(0, (this.readyAtByItem.get(itemId) ?? 0) - time);
     return { remainingMs, ready: remainingMs === 0 };
   }
+
+  reduceAll(amountMs: number): void {
+    this.readyAtByItem.forEach((readyAt, itemId) => this.readyAtByItem.set(itemId, readyAt - Math.max(0, amountMs)));
+  }
 }

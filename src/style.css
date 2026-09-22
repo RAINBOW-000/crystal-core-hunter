@@ -32,36 +32,7 @@ body {
 
 .game-shell {
   width: min(100%, 1020px);
-  padding: 24px 30px 28px;
-}
-
-.titlebar,
-footer {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 20px;
-}
-
-.eyebrow {
-  margin: 0 0 3px;
-  color: #56e0c5;
-  font: 700 11px/1 monospace;
-  letter-spacing: .18em;
-}
-
-h1 {
-  margin: 0 0 14px;
-  font-size: clamp(25px, 4vw, 38px);
-  line-height: 1;
-  letter-spacing: .08em;
-  text-shadow: 3px 3px 0 #332449;
-}
-
-.stage {
-  margin: 0 0 14px;
-  color: #a89bb5;
-  font-size: 13px;
+  padding: 18px 30px 22px;
 }
 
 #game {
@@ -81,6 +52,7 @@ h1 {
 }
 
 footer {
+  display: flex;
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
@@ -101,5 +73,4 @@ kbd {
 
 @media (max-width: 620px) {
   .game-shell { padding: 16px 12px 20px; }
-  .stage { display: none; }
 }

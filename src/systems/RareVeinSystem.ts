@@ -25,6 +25,7 @@ export class RareVeinSystem {
     private readonly player: Player,
     private readonly callbacks: RareVeinCallbacks,
     private readonly random: RandomSource = Math.random,
+    private readonly spawnTimesMs: readonly number[] = RUN_CONFIG.rareVeinSpawnTimesMs,
   ) {
     this.interactKey = scene.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.F);
     this.progressBack = scene.add.rectangle(0, 0, 72, 8, 0x17131f, 0.95).setDepth(70).setVisible(false);
@@ -37,8 +38,8 @@ export class RareVeinSystem {
 
   update(elapsedMs: number, deltaMs: number): void {
     while (
-      this.nextSpawnIndex < RUN_CONFIG.rareVeinSpawnTimesMs.length
-      && elapsedMs >= RUN_CONFIG.rareVeinSpawnTimesMs[this.nextSpawnIndex]
+      this.nextSpawnIndex < this.spawnTimesMs.length
+      && elapsedMs >= this.spawnTimesMs[this.nextSpawnIndex]
     ) {
       this.spawnVein();
       this.nextSpawnIndex += 1;

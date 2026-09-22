@@ -27,7 +27,7 @@ export class ActiveItemReplacement {
   ): void {
     this.close();
     this.objects.push(
-      this.scene.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x08070d, 0.9).setDepth(300),
+      this.scene.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x080d12, 0.92).setDepth(300),
       this.scene.add.text(GAME_WIDTH / 2, 82, "主动道具槽已满", {
         fontFamily: "Microsoft YaHei", fontSize: "30px", color: "#78f3da", fontStyle: "bold",
       }).setOrigin(0.5).setDepth(301),
@@ -46,13 +46,13 @@ export class ActiveItemReplacement {
       {
         title: `替换 ${slots[0]?.definition.name ?? "槽位 Q"}`,
         detail: describeSlot(slots[0], "Q"),
-        color: 0x2b2637,
+        color: 0x151d24,
         run: () => onReplace(0),
       },
       {
         title: `替换 ${slots[1]?.definition.name ?? "槽位 E"}`,
         detail: describeSlot(slots[1], "E"),
-        color: 0x2b2637,
+        color: 0x151d24,
         run: () => onReplace(1),
       },
       { title: "放弃新道具", detail: "保留当前搭配", color: 0x352329, run: onDiscard },
@@ -61,7 +61,7 @@ export class ActiveItemReplacement {
     actions.forEach((action, index) => {
       const x = 250 + index * 230;
       const card = this.scene.add.rectangle(x, 292, 200, 210, action.color)
-        .setStrokeStyle(2, index === 2 ? 0x9b5964 : 0x655576)
+        .setStrokeStyle(2, index === 2 ? 0x9b5964 : 0x4b666d)
         .setDepth(301)
         .setInteractive({ useHandCursor: true });
       const number = this.scene.add.text(x, 220, `${index + 1}`, {
@@ -80,6 +80,7 @@ export class ActiveItemReplacement {
       card.on("pointerdown", action.run);
       this.objects.push(card, number, title, detail);
     });
+    this.objects.forEach((object) => (object as Phaser.GameObjects.Sprite).setScrollFactor(0));
   }
 
   close(): void {

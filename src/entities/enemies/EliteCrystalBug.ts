@@ -2,10 +2,11 @@ import Phaser from "phaser";
 import { ELITE_CRYSTAL_BUG } from "../../content/enemies/enemyCatalog";
 import { Enemy } from "../Enemy";
 import type { Player } from "../Player";
+import type { StageDefinition } from "../../content/stages/stageCatalog";
 
 export class EliteCrystalBug extends Enemy {
-  constructor(scene: Phaser.Scene, x: number, y: number, reinforced = false) {
-    super(scene, x, y, ELITE_CRYSTAL_BUG, reinforced ? ELITE_CRYSTAL_BUG.hp * 1.8 : ELITE_CRYSTAL_BUG.hp);
+  constructor(scene: Phaser.Scene, x: number, y: number, reinforced = false, modifiers?: StageDefinition["returningEnemyModifiers"]) {
+    super(scene, x, y, ELITE_CRYSTAL_BUG, reinforced ? ELITE_CRYSTAL_BUG.hp * 1.8 : ELITE_CRYSTAL_BUG.hp, modifiers);
     this.setScale(reinforced ? 1.35 : 1.18);
     this.body!.setSize(25, 21).setOffset(4, 7);
     if (reinforced) this.setTint(0xffc66d);
@@ -19,6 +20,6 @@ export class EliteCrystalBug extends Enemy {
       return;
     }
     const chase = new Phaser.Math.Vector2(player.x - this.x, player.y - this.y).normalize();
-    this.setVelocity(chase.x * ELITE_CRYSTAL_BUG.speed, chase.y * ELITE_CRYSTAL_BUG.speed);
+    this.setVelocity(chase.x * this.moveSpeed, chase.y * this.moveSpeed);
   }
 }

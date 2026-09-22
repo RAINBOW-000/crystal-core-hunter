@@ -25,7 +25,7 @@ export class ItemPickupToast {
       fontFamily: "Microsoft YaHei", fontSize: "11px", color: "#b8a9c4",
     }).setOrigin(0, 0.5);
     const container = this.scene.add.container(GAME_WIDTH / 2, 112, [panel, marker, title, effect])
-      .setDepth(260).setAlpha(0).setScale(0.96);
+      .setDepth(260).setAlpha(0).setScale(0.96).setScrollFactor(0);
     const entry = { container };
     this.entries.unshift(entry);
     this.entries.splice(3).forEach((removed) => removed.container.destroy());

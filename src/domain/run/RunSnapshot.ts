@@ -1,4 +1,4 @@
-export type RunPhase = "choosingCharacter" | "choosingInitialWeapon" | "playing" | "choosingUpgrade" | "choosingItemReward" | "choosingItemReplacement" | "choosingVictoryReward" | "won" | "lost";
+export type RunPhase = "choosingCharacter" | "playing" | "paused" | "choosingUpgrade" | "choosingItemReward" | "choosingItemReplacement" | "choosingVictoryReward" | "won" | "lost";
 
 export interface RunSnapshot {
   runSeed: string;

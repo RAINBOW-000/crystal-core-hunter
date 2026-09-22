@@ -15,14 +15,14 @@ test("enemy definitions use unique stable IDs and valid combat values", () => {
   });
 });
 
-test("spawn timeline references catalog entries and retains the twelve minute pacing", () => {
+test("spawn timeline references catalog entries and follows the seven minute first-stage pacing", () => {
   const ids = new Set(ENEMY_CATALOG.map((enemy) => enemy.id));
   ENEMY_SPAWN_PLAN.waveStages.flatMap((stage) => stage.entries).forEach((entry) => assert.ok(ids.has(entry.enemyId)));
   ENEMY_SPAWN_PLAN.eliteSpawns.forEach((spawn) => assert.ok(ids.has(spawn.enemyId)));
   assert.ok(ids.has(ENEMY_SPAWN_PLAN.bossSpawn.enemyId));
-  assert.deepEqual(ENEMY_SPAWN_PLAN.eliteSpawns.map((spawn) => spawn.atMs), [150000, 300000, 450000, 600000]);
-  assert.equal(ENEMY_SPAWN_PLAN.bossSpawn.atMs, 720000);
-  assert.equal(ENEMY_SPAWN_PLAN.durationMs, 720000);
+  assert.deepEqual(ENEMY_SPAWN_PLAN.eliteSpawns.map((spawn) => spawn.atMs), [90000, 180000, 270000, 360000]);
+  assert.equal(ENEMY_SPAWN_PLAN.bossSpawn.atMs, 420000);
+  assert.equal(ENEMY_SPAWN_PLAN.durationMs, 420000);
 });
 
 test("wave selection changes at the configured progress thresholds", () => {

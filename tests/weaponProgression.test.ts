@@ -14,16 +14,19 @@ const skills: WeaponSkillDefinition[] = [
   "pierce", "split", "mark",
 ].map((id) => ({ id: `bow-${id}`, name: id, description: id, weaponId: "crystal-crossbow", routeId: "prism" }))).concat([
   "string", "spread", "pressure",
-].map((id) => ({ id: `bow-${id}`, name: id, description: id, weaponId: "crystal-crossbow", routeId: "rain" })));
+].map((id) => ({ id: `bow-${id}`, name: id, description: id, weaponId: "crystal-crossbow", routeId: "rain" }))).concat([
+  "drill-extra", "drill-bearing", "drill-return",
+].map((id) => ({ id, name: id, description: id, weaponId: "orbit-drill", routeId: "secondary" })));
 
 const evolutions: WeaponEvolutionDefinition[] = [
   { weaponId: "greatsword", routeId: "wind", requiredItemId: "wind-core", name: "wind", description: "wind" },
   { weaponId: "greatsword", routeId: "iron", requiredItemId: "iron-core", name: "iron", description: "iron" },
+  { weaponId: "orbit-drill", routeId: "secondary", requiredItemId: "star-axis", name: "planet", description: "planet" },
 ];
 
 const createModel = () => new WeaponProgression(
   "greatsword",
-  ["greatsword", "crystal-crossbow", "orbit-drill", "fission-staff"],
+  ["orbit-drill", "seismic-resonator", "refraction-satellite"],
   skills,
   evolutions,
   () => 0.42,
@@ -31,7 +34,7 @@ const createModel = () => new WeaponProgression(
 
 test("combined offer has three choices covering both equipped weapons", () => {
   const model = createModel();
-  model.equipSecondWeapon("crystal-crossbow");
+  model.equipSecondWeapon("orbit-drill");
   const offer = model.createCombinedSkillOffer();
   assert.equal(offer.length, 3);
   assert.equal(new Set(offer.map((skill) => skill.weaponId)).size, 2);
@@ -87,14 +90,13 @@ test("only the current route evolution item enters the eligible drop pool", () =
   assert.deepEqual(model.getEligibleEvolutionItemIds(), ["iron-core"]);
 });
 
-test("repeatable refinements fill an advanced offer when only one route skill remains", () => {
+test("an exhausted route waits for its evolution instead of offering filler", () => {
   const model = createModel();
   model.selectSkill("wave");
   model.selectSkill("chase");
   const offer = model.createAdvancedOffer();
-  assert.equal(offer.length, 3);
-  assert.equal(offer.filter((option) => option.kind === "skill").length, 1);
-  assert.equal(offer.filter((option) => option.kind === "refinement").length, 2);
+  assert.equal(offer.length, 1);
+  assert.equal(offer[0]?.kind, "skill");
 });
 
 test("refinements do not bypass a weapon waiting for its evolution item", () => {
@@ -104,7 +106,7 @@ test("refinements do not bypass a weapon waiting for its evolution item", () => 
   assert.equal(model.pendingAdvancedCount, 1);
 });
 
-test("fully evolved weapons continue growing through three refinement choices", () => {
+test("fully evolved weapons have no post-completion route yet", () => {
   const model = createModel();
   model.addEvolutionItem("wind-core");
   ["wave", "chase", "echo"].forEach((id) => model.selectSkill(id));
@@ -113,6 +115,18 @@ test("fully evolved weapons continue growing through three refinement choices", 
   ["heavy", "fissure", "stance"].forEach((id) => model.selectSkill(id));
   model.tryEvolve("greatsword");
   const offer = model.createAdvancedOffer();
-  assert.equal(offer.length, 3);
-  assert.ok(offer.every((option) => option.kind === "refinement"));
+  assert.deepEqual(offer, []);
+});
+
+test("a secondary weapon has one three-upgrade route and one evolution", () => {
+  const model = createModel();
+  model.equipSecondWeapon("orbit-drill");
+  model.selectSkill("drill-extra");
+  assert.deepEqual(model.getEligibleEvolutionItemIds(), ["star-axis"]);
+  model.addEvolutionItem("star-axis");
+  model.selectSkill("drill-bearing");
+  model.selectSkill("drill-return");
+  assert.equal(model.tryEvolve("orbit-drill").stage, 1);
+  assert.equal(model.allEquippedFullyEvolved, false);
+  assert.deepEqual(model.createSkillOffer("orbit-drill"), []);
 });

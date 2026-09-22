@@ -1,7 +1,8 @@
 import type { EnemyCoreReward } from "../combat/EnemyCoreReward";
 import type { RandomSource } from "../random/RunRandom";
 
-export type EnemyId = "crystal-bug" | "crystal-spitter" | "crystal-ram" | "elite-crystal-bug" | "crystal-hive-boss";
+export type EnemyId = "crystal-bug" | "crystal-spitter" | "crystal-ram" | "elite-crystal-bug" | "crystal-hive-boss"
+  | "frost-trail-beast" | "ice-vein-caller" | "frost-ridge-hunter" | "ice-armor-colossus";
 export type EnemyKind = "normal" | "elite" | "boss";
 
 interface EnemyDefinitionBase {
@@ -14,6 +15,8 @@ interface EnemyDefinitionBase {
   contactDamage: number;
   coreReward: EnemyCoreReward;
   itemDropChance: number;
+  stage: 1 | 2;
+  coldOnContact?: number;
 }
 
 export interface ChaserEnemyDefinition extends EnemyDefinitionBase {
@@ -42,7 +45,30 @@ export interface BossEnemyDefinition extends EnemyDefinitionBase {
   projectileDamage: number;
 }
 
-export type EnemyDefinition = ChaserEnemyDefinition | SpitterEnemyDefinition | RamEnemyDefinition | BossEnemyDefinition;
+export interface FrostTrailEnemyDefinition extends EnemyDefinitionBase {
+  behavior: "frostTrail";
+  trailCooldownMs: number;
+}
+
+export interface IceCallerEnemyDefinition extends EnemyDefinitionBase {
+  behavior: "iceCaller";
+  preferredDistance: number;
+  castCooldownMs: number;
+}
+
+export interface FrostHunterEnemyDefinition extends EnemyDefinitionBase {
+  behavior: "frostHunter";
+  dashCooldownMs: number;
+  dashSpeed: number;
+}
+
+export interface ColossusEnemyDefinition extends EnemyDefinitionBase {
+  behavior: "colossus";
+  staggerThreshold: number;
+}
+
+export type EnemyDefinition = ChaserEnemyDefinition | SpitterEnemyDefinition | RamEnemyDefinition | BossEnemyDefinition
+  | FrostTrailEnemyDefinition | IceCallerEnemyDefinition | FrostHunterEnemyDefinition | ColossusEnemyDefinition;
 
 export interface WaveEntry {
   enemyId: EnemyId;
